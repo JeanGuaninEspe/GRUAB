@@ -1,0 +1,2522 @@
+﻿<!DOCTYPE html>
+<html lang="es" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="color-scheme" content="dark light">
+  <title>VialBot â€” Asistente Inteligente de Operaciones y Rescate Vial</title>
+
+  <!-- Prevent Theme Flash -->
+  <script>
+    (function() {
+      const savedTheme = localStorage.getItem('vialbot_theme') || 'dark';
+      if (savedTheme === 'dark' || (savedTheme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+        document.querySelector('meta[name="color-scheme"]').setAttribute('content', 'dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+        document.querySelector('meta[name="color-scheme"]').setAttribute('content', 'light');
+      }
+    })();
+  </script>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Vue 3 CDN -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+
+  <!-- Marked.js Markdown Parser -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <!-- DOMPurify for XSS Sanitization -->
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+
+  <!-- Highlight.js for Code Highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" id="hljs-theme">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+
+  <!-- KaTeX for Math Expressions -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <!-- Chart.js for Interactive Visual Analytics -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#ecfdf5',
+              100: '#d1fae5',
+              200: '#a7f3d0',
+              300: '#6ee7b7',
+              400: '#34d399',
+              500: '#10b981',
+              600: '#059669',
+              700: '#047857',
+              800: '#065f46',
+              900: '#064e3b',
+              950: '#022c22',
+            },
+            gemini: {
+              blue: '#4285f4',
+              purple: '#9b72cb',
+              pink: '#d96570',
+              glow: 'rgba(66, 133, 244, 0.15)',
+            },
+            dark: {
+              bg: '#0f172a',
+              surface: '#1e293b',
+              sidebar: '#0b1120',
+              border: '#334155',
+            }
+          },
+          animation: {
+            'shimmer': 'shimmer 2.5s infinite linear',
+            'pulse-subtle': 'pulseSubtle 2s infinite ease-in-out',
+            'aurora': 'aurora 10s ease infinite alternate',
+          },
+          keyframes: {
+            shimmer: {
+              '0%': { backgroundPosition: '-200% 0' },
+              '100%': { backgroundPosition: '200% 0' },
+            },
+            pulseSubtle: {
+              '0%, 100%': { opacity: '1', transform: 'scale(1)' },
+              '50%': { opacity: '0.85', transform: 'scale(1.02)' },
+            },
+            aurora: {
+              '0%': { backgroundPosition: '0% 50%' },
+              '50%': { backgroundPosition: '100% 50%' },
+              '100%': { backgroundPosition: '0% 50%' },
+            }
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    /* Estilos base y scrollbar */
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: rgba(156, 163, 175, 0.4) transparent;
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(156, 163, 175, 0.35);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(156, 163, 175, 0.55);
+    }
+
+    /* Degradado aurora estilo Gemini para tÃ­tulos y badges */
+    .gemini-gradient-text {
+      background: linear-gradient(135deg, #4285f4 0%, #9b72cb 40%, #d96570 75%, #10b981 100%);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: textShine 8s ease infinite;
+    }
+    @keyframes textShine {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .gemini-border-glow {
+      position: relative;
+    }
+    .gemini-border-glow::before {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      border-radius: inherit;
+      padding: 1px;
+      background: linear-gradient(135deg, rgba(66, 133, 244, 0.5), rgba(155, 114, 203, 0.5), rgba(16, 185, 129, 0.5));
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+    }
+
+    /* Markdown y contenido generado */
+    .prose-chat {
+      font-size: 0.95rem;
+      line-height: 1.68;
+    }
+    .prose-chat p {
+      margin-bottom: 0.85rem;
+    }
+    .prose-chat p:last-child {
+      margin-bottom: 0;
+    }
+    .prose-chat h1, .prose-chat h2, .prose-chat h3, .prose-chat h4 {
+      font-weight: 700;
+      color: inherit;
+      margin-top: 1.25rem;
+      margin-bottom: 0.6rem;
+      letter-spacing: -0.015em;
+    }
+    .prose-chat h1 { font-size: 1.35rem; }
+    .prose-chat h2 { font-size: 1.2rem; }
+    .prose-chat h3 { font-size: 1.05rem; }
+    .prose-chat ul {
+      list-style-type: disc;
+      padding-left: 1.35rem;
+      margin-bottom: 0.85rem;
+    }
+    .prose-chat ol {
+      list-style-type: decimal;
+      padding-left: 1.35rem;
+      margin-bottom: 0.85rem;
+    }
+    .prose-chat li {
+      margin-bottom: 0.35rem;
+    }
+    .prose-chat blockquote {
+      border-left: 3px solid #10b981;
+      padding-left: 0.9rem;
+      font-style: italic;
+      margin: 0.85rem 0;
+      opacity: 0.92;
+    }
+    .prose-chat table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      margin: 1rem 0;
+      font-size: 0.875rem;
+      border-radius: 0.75rem;
+      overflow: hidden;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+    }
+    .prose-chat th {
+      background-color: rgba(148, 163, 184, 0.12);
+      font-weight: 600;
+      text-align: left;
+      padding: 0.6rem 0.85rem;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+    }
+    .prose-chat td {
+      padding: 0.55rem 0.85rem;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+    }
+    .prose-chat tr:last-child td {
+      border-bottom: none;
+    }
+    .prose-chat pre {
+      margin: 0.85rem 0;
+      border-radius: 0.75rem;
+      overflow-x: auto;
+      background: #1e1e2e;
+    }
+    .prose-chat code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.85em;
+      padding: 0.15rem 0.35rem;
+      border-radius: 0.35rem;
+      background-color: rgba(148, 163, 184, 0.15);
+    }
+    .prose-chat pre code {
+      background-color: transparent;
+      padding: 0;
+      font-size: 0.88rem;
+    }
+
+    /* Indicador de pensamiento con gradiente animado */
+    .thinking-gradient {
+      background: linear-gradient(90deg, #4285f4, #9b72cb, #d96570, #10b981, #4285f4);
+      background-size: 300% 100%;
+      animation: thinkingAnim 2.5s ease infinite;
+    }
+    @keyframes thinkingAnim {
+      0% { background-position: 0% 50%; }
+      100% { background-position: 100% 50%; }
+    }
+
+    /* AnimaciÃ³n de pulso para grabaciÃ³n por voz */
+    @keyframes micPulse {
+      0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
+      70% { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+    .mic-recording {
+      animation: micPulse 1.6s infinite;
+    }
+  </style>
+</head>
+
+<body class="h-full bg-slate-50 text-slate-800 dark:bg-[#0b0f19] dark:text-slate-100 flex flex-col font-sans overflow-hidden antialiased selection:bg-brand-500 selection:text-white transition-colors duration-200">
+
+  <div id="app" class="h-full flex flex-col overflow-hidden relative">
+
+    <!-- TOP HEADER (ChatGPT / Gemini style) -->
+    <header class="h-14 border-b border-slate-200 dark:border-slate-800/80 bg-white/80 dark:bg-[#0b0f19]/80 backdrop-blur-md px-3 sm:px-5 flex items-center justify-between z-30 shrink-0 select-none">
+
+      <!-- Left: Toggle Sidebar + Title / Model Pill -->
+      <div class="flex items-center gap-2 sm:gap-3">
+        <!-- Sidebar Toggle Button -->
+        <button
+          @click="toggleSidebar"
+          class="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition active:scale-95"
+          :title="sidebarOpen ? 'Cerrar barra lateral (Ctrl+[)' : 'Abrir barra lateral (Ctrl+[)'"
+          aria-label="Alternar barra lateral"
+        >
+          <i data-lucide="panel-left" class="w-5 h-5"></i>
+        </button>
+
+        <!-- New Chat Button (Shortcut in header) -->
+        <button
+          @click="crearNuevaConversacion"
+          class="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition active:scale-95"
+          title="Nueva conversaciÃ³n (Ctrl+O)"
+          aria-label="Nueva conversaciÃ³n"
+        >
+          <i data-lucide="square-pen" class="w-5 h-5"></i>
+        </button>
+
+        <!-- Model Selector Pill (ChatGPT / Gemini model switcher style) -->
+        <div class="relative group flex items-center gap-2">
+          <img src="/logo-cosad.webp" alt="COSAD 25" class="h-7 w-auto object-contain hidden sm:inline-block rounded filter drop-shadow-xs" onerror="this.style.display='none'">
+          <button
+            @click="mostrarModelInfo = !mostrarModelInfo"
+            class="flex items-center gap-2 px-2.5 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/80 transition text-sm font-semibold text-slate-800 dark:text-white"
+          >
+            <span class="flex items-center gap-1.5">
+              <span class="gemini-gradient-text font-bold text-base tracking-tight">VialBot AI</span>
+              <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                Qwen 2.5 3B
+              </span>
+            </span>
+            <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400 transition-transform group-hover:translate-y-0.5"></i>
+          </button>
+
+          <!-- Model Info Dropdown -->
+          <div
+            v-if="mostrarModelInfo"
+            class="absolute left-0 mt-2 w-72 rounded-2xl p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl z-50 text-xs space-y-2"
+          >
+            <div class="font-semibold text-slate-900 dark:text-white flex items-center justify-between">
+              <span>Modelo Local de IA</span>
+              <span class="text-[11px] px-1.5 py-0.5 rounded bg-brand-500/20 text-brand-500 font-mono">Activo</span>
+            </div>
+            <p class="text-slate-500 dark:text-slate-400 leading-relaxed">
+              Ollama Qwen 2.5 3B especializado en operaciones de autopista, consulta asistida a SQL Server y extracciÃ³n a libros Excel.
+            </p>
+            <div class="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-slate-400">
+              <span>Instancia BD:</span>
+              <span class="font-mono text-slate-700 dark:text-slate-300">VIALPROD</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Server Status, Theme, Quick Actions, Settings -->
+      <div class="flex items-center gap-1.5 sm:gap-2">
+
+        <!-- Server Status Indicator Badge -->
+        <div
+          class="hidden sm:flex items-center gap-2 bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 px-3 py-1 rounded-full text-xs font-medium"
+          :class="dbStatus === 'healthy' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-500'"
+          :title="dbStatusDetail"
+        >
+          <span class="relative flex h-2 w-2">
+            <span v-if="dbStatus === 'healthy'" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2" :class="dbStatus === 'healthy' ? 'bg-emerald-500' : 'bg-amber-500'"></span>
+          </span>
+          <span class="truncate max-w-[130px] font-mono text-[11px]">{{ dbLatency ? dbLatency + 'ms â€¢ ' : '' }}{{ dbStatusText }}</span>
+        </div>
+
+        <!-- Command Palette Trigger (Ctrl+K) -->
+        <button
+          @click="abrirCommandPalette"
+          class="hidden md:flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 bg-slate-100 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700/60 px-2.5 py-1.5 rounded-xl transition"
+          title="Abrir paleta de comandos (Ctrl+K)"
+        >
+          <i data-lucide="search" class="w-3.5 h-3.5"></i>
+          <span>Buscar</span>
+          <kbd class="text-[10px] px-1.5 py-0.5 rounded bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 font-mono shadow-xs">Ctrl K</kbd>
+        </button>
+
+        <!-- Theme Toggle (Dark / Light) -->
+        <button
+          @click="toggleTheme"
+          class="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition active:scale-95"
+          :title="isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'"
+          aria-label="Cambiar tema de color"
+        >
+          <i v-if="isDark" data-lucide="sun" class="w-5 h-5 text-amber-400"></i>
+          <i v-else data-lucide="moon" class="w-5 h-5 text-slate-600"></i>
+        </button>
+
+        <!-- Swagger Docs Link -->
+        <a
+          href="/docs"
+          target="_blank"
+          class="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition active:scale-95 hidden sm:inline-flex"
+          title="DocumentaciÃ³n de la API (Swagger)"
+          aria-label="DocumentaciÃ³n API Swagger"
+        >
+          <i data-lucide="file-code" class="w-5 h-5"></i>
+        </a>
+
+        <!-- Settings Button -->
+        <button
+          @click="mostrarConfiguracion = true"
+          class="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition active:scale-95"
+          title="ConfiguraciÃ³n y preferencias"
+          aria-label="ConfiguraciÃ³n"
+        >
+          <i data-lucide="settings" class="w-5 h-5"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- MAIN BODY CONTAINER -->
+    <div class="flex-1 flex overflow-hidden relative">
+
+      <!-- BACKDROP FOR MOBILE SIDEBAR -->
+      <div
+        v-if="sidebarOpen && isMobile"
+        @click="sidebarOpen = false"
+        class="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 transition-opacity"
+      ></div>
+
+      <!-- SIDEBAR: Historial de Chats & Accesos RÃ¡pidos (ChatGPT / Gemini Drawer) -->
+      <aside
+        class="fixed lg:static inset-y-0 left-0 z-40 flex flex-col w-72 sm:w-80 bg-slate-50 dark:bg-[#0c121e] border-r border-slate-200 dark:border-slate-800/80 transition-all duration-300 ease-in-out shrink-0 select-none"
+        :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:-ml-72 lg:w-0 lg:border-r-0 lg:overflow-hidden'"
+      >
+        <!-- Sidebar Header: New Chat Button -->
+        <div class="p-3.5 border-b border-slate-200/80 dark:border-slate-800/80 flex items-center gap-2">
+          <button
+            @click="crearNuevaConversacion"
+            class="flex-1 flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-slate-700/70 text-slate-800 dark:text-slate-100 font-medium text-sm transition shadow-xs group"
+          >
+            <span class="flex items-center gap-2.5">
+              <i data-lucide="plus" class="w-4 h-4 text-brand-500 group-hover:rotate-90 transition-transform"></i>
+              <span>Nuevo chat</span>
+            </span>
+            <kbd class="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-400 font-mono">Ctrl+O</kbd>
+          </button>
+
+          <!-- Close sidebar button on mobile -->
+          <button
+            @click="sidebarOpen = false"
+            class="lg:hidden p-2 rounded-xl text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition"
+          >
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <!-- Sidebar Filter / Search Chats -->
+        <div class="px-3 pt-3 pb-1">
+          <div class="relative">
+            <i data-lucide="search" class="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+            <input
+              v-model="filtroBusqueda"
+              type="text"
+              placeholder="Filtrar conversaciones..."
+              class="w-full bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-brand-500 transition"
+            >
+          </div>
+        </div>
+
+        <!-- Sidebar Conversations List (Grouped Chronologically) -->
+        <div class="flex-1 overflow-y-auto px-3 py-2 space-y-4">
+
+          <!-- CategorÃ­as rÃ¡pidas de consulta -->
+          <div>
+            <div class="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider px-2 mb-1.5 flex items-center justify-between">
+              <span>MÃ³dulos Viales</span>
+              <i data-lucide="sparkles" class="w-3 h-3 text-brand-500"></i>
+            </div>
+            <div class="space-y-0.5">
+              <button
+                @click="ejecutarPlantillaRapida('ambulancias')"
+                class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800/60 transition flex items-center gap-2"
+              >
+                <span>ðŸš‘</span>
+                <span class="truncate">Asistencia Ambulancias</span>
+              </button>
+              <button
+                @click="ejecutarPlantillaRapida('gruas')"
+                class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800/60 transition flex items-center gap-2"
+              >
+                <span>ðŸšœ</span>
+                <span class="truncate">Auxilio de GrÃºas</span>
+              </button>
+              <button
+                @click="ejecutarPlantillaRapida('patrullajes')"
+                class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800/60 transition flex items-center gap-2"
+              >
+                <span>ðŸš”</span>
+                <span class="truncate">BitÃ¡cora de Patrullaje</span>
+              </button>
+              <button
+                @click="ejecutarPlantillaRapida('excel')"
+                class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition flex items-center gap-2 font-medium"
+              >
+                <span>ðŸ“Š</span>
+                <span class="truncate">Generar Informe Excel</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Historial de sesiones guardadas -->
+          <div>
+            <div class="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider px-2 mb-1.5 flex items-center justify-between">
+              <span>Historial</span>
+              <span class="text-[10px] text-slate-400 font-mono">{{ conversacionesFiltradas.length }}</span>
+            </div>
+
+            <!-- Empty history state -->
+            <div v-if="conversacionesFiltradas.length === 0" class="text-center py-6 text-xs text-slate-400 px-4">
+              <i data-lucide="message-square-dashed" class="w-6 h-6 mx-auto mb-1.5 opacity-60"></i>
+              No hay conversaciones encontradas
+            </div>
+
+            <!-- Chat sessions loop -->
+            <div class="space-y-1">
+              <div
+                v-for="chat in conversacionesFiltradas"
+                :key="chat.id"
+                @click="seleccionarConversacion(chat.id)"
+                class="group relative flex items-center justify-between px-2.5 py-2 rounded-xl text-xs cursor-pointer transition"
+                :class="chatActualId === chat.id
+                  ? 'bg-slate-200/80 dark:bg-slate-800 text-slate-900 dark:text-white font-medium shadow-2xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 hover:text-slate-800 dark:hover:text-slate-200'"
+              >
+                <div class="flex items-center gap-2.5 min-w-0 pr-6">
+                  <i data-lucide="message-square" class="w-3.5 h-3.5 shrink-0 opacity-70"></i>
+                  <span class="truncate">{{ chat.titulo || 'Nueva consulta' }}</span>
+                </div>
+
+                <!-- Action buttons on hover -->
+                <div class="absolute right-1.5 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded-md">
+                  <button
+                    @click.stop="renombrarConversacion(chat.id)"
+                    class="p-1 hover:text-brand-500 text-slate-400 transition"
+                    title="Renombrar chat"
+                  >
+                    <i data-lucide="pencil" class="w-3 h-3"></i>
+                  </button>
+                  <button
+                    @click.stop="eliminarConversacion(chat.id)"
+                    class="p-1 hover:text-red-500 text-slate-400 transition"
+                    title="Eliminar chat"
+                  >
+                    <i data-lucide="trash-2" class="w-3 h-3"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sidebar Footer: System Status & Clear All -->
+        <div class="p-3 border-t border-slate-200 dark:border-slate-800/80 bg-white/50 dark:bg-slate-900/50 text-xs text-slate-500 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+              <span>SQL Server: VIALPROD</span>
+            </span>
+            <span class="font-mono text-[11px] text-slate-400">v1.2.0</span>
+          </div>
+
+          <div class="flex items-center justify-between pt-1">
+            <button
+              @click="exportarHistorial"
+              class="text-[11px] text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 transition flex items-center gap-1"
+            >
+              <i data-lucide="download" class="w-3 h-3"></i> Exportar
+            </button>
+            <button
+              @click="confirmarLimpiarTodo"
+              class="text-[11px] text-slate-400 hover:text-red-500 transition flex items-center gap-1"
+            >
+              <i data-lucide="trash" class="w-3 h-3"></i> Borrar todo
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- MAIN CHAT CANVAS -->
+      <main class="flex-1 flex flex-col h-full bg-white dark:bg-[#0f172a] relative overflow-hidden">
+
+        <!-- SCROLLABLE MESSAGE FEED -->
+        <div
+          ref="chatContainer"
+          @scroll="handleScroll"
+          class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6"
+        >
+
+          <!-- HERO WELCOME SECTION (Gemini Style - shown when chat is empty) -->
+          <div
+            v-if="mensajesActuales.length === 0"
+            class="max-w-3xl mx-auto my-auto pt-6 sm:pt-12 pb-8 text-center flex flex-col items-center justify-center animate-fade-in"
+          >
+            <!-- Animated Gemini-like glowing icon -->
+            <div class="relative mb-6">
+              <div class="w-16 h-16 rounded-3xl bg-gradient-to-tr from-brand-600 via-emerald-500 to-cyan-400 flex items-center justify-center shadow-xl shadow-brand-500/25">
+                <i data-lucide="sparkles" class="w-8 h-8 text-white"></i>
+              </div>
+              <span class="absolute -top-1 -right-1 flex h-4 w-4">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-4 w-4 bg-emerald-500 border-2 border-white dark:border-[#0f172a]"></span>
+              </span>
+            </div>
+
+            <!-- Greeting text with Gemini gradient -->
+            <h1 class="text-2xl sm:text-4xl font-extrabold tracking-tight mb-3">
+              <span class="gemini-gradient-text">Hola, Â¿en quÃ© puedo ayudarte hoy?</span>
+            </h1>
+            <p class="text-sm sm:text-base text-slate-500 dark:text-slate-400 max-w-lg mx-auto mb-8 leading-relaxed">
+              Consulta en lenguaje natural sobre traslados de ambulancias, rescates con grÃºas, patrullajes preventivos o genera informes en Excel.
+            </p>
+
+            <!-- Categorized Suggestion Cards Grid (ChatGPT / Gemini style) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl text-left">
+
+              <!-- Card 1: Ambulancias -->
+              <div
+                @click="enviarPromptSugerido('Â¿QuÃ© novedades o traslados hemos registrado hoy con las ambulancias?')"
+                class="group p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700/60 hover:border-brand-500/50 cursor-pointer transition duration-200 shadow-xs hover:shadow-md flex flex-col justify-between gap-3"
+              >
+                <div class="flex items-center justify-between">
+                  <span class="text-xl">ðŸš‘</span>
+                  <i data-lucide="arrow-up-right" class="w-4 h-4 text-slate-400 group-hover:text-brand-500 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"></i>
+                </div>
+                <div>
+                  <div class="text-xs font-semibold text-slate-800 dark:text-slate-200">Asistencia MÃ©dica</div>
+                  <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Â¿QuÃ© traslados y novedades hubo hoy con ambulancias?</div>
+                </div>
+              </div>
+
+              <!-- Card 2: Reporte Excel -->
+              <div
+                @click="enviarPromptSugerido('Necesito un reporte completo en Excel de las operaciones de grÃºas del mes en curso')"
+                class="group p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700/60 hover:border-brand-500/50 cursor-pointer transition duration-200 shadow-xs hover:shadow-md flex flex-col justify-between gap-3"
+              >
+                <div class="flex items-center justify-between">
+                  <span class="text-xl">ðŸ“Š</span>
+                  <i data-lucide="arrow-up-right" class="w-4 h-4 text-slate-400 group-hover:text-brand-500 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"></i>
+                </div>
+                <div>
+                  <div class="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Descarga a Excel</div>
+                  <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Reporte en Excel de asistencias de grÃºa de este mes</div>
+                </div>
+              </div>
+
+              <!-- Card 3: Patrullajes -->
+              <div
+                @click="enviarPromptSugerido('Â¿Hubo novedades de patrullaje en el tramo Los Ãngeles - Cuatro Mangas en los Ãºltimos dÃ­as?')"
+                class="group p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700/60 hover:border-brand-500/50 cursor-pointer transition duration-200 shadow-xs hover:shadow-md flex flex-col justify-between gap-3"
+              >
+                <div class="flex items-center justify-between">
+                  <span class="text-xl">ðŸš”</span>
+                  <i data-lucide="arrow-up-right" class="w-4 h-4 text-slate-400 group-hover:text-brand-500 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"></i>
+                </div>
+                <div>
+                  <div class="text-xs font-semibold text-slate-800 dark:text-slate-200">Patrullaje Preventivo</div>
+                  <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Novedades en el tramo Los Ãngeles - Cuatro Mangas</div>
+                </div>
+              </div>
+
+              <!-- Card 4: Siniestralidad / KPIs -->
+              <div
+                @click="enviarPromptSugerido('Â¿CuÃ¡les son los tramos con mayor siniestralidad o accidentes en los Ãºltimos 30 dÃ­as?')"
+                class="group p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700/60 hover:border-brand-500/50 cursor-pointer transition duration-200 shadow-xs hover:shadow-md flex flex-col justify-between gap-3"
+              >
+                <div class="flex items-center justify-between">
+                  <span class="text-xl">âš ï¸</span>
+                  <i data-lucide="arrow-up-right" class="w-4 h-4 text-slate-400 group-hover:text-brand-500 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"></i>
+                </div>
+                <div>
+                  <div class="text-xs font-semibold text-amber-600 dark:text-amber-400">Puntos CrÃ­ticos</div>
+                  <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Incidentes de mayor gravedad en los Ãºltimos 30 dÃ­as</div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- ACTIVE MESSAGES FEED -->
+          <div v-else class="max-w-3xl mx-auto space-y-6">
+
+            <!-- Message Item Loop -->
+            <div
+              v-for="(msg, idx) in mensajesActuales"
+              :key="idx"
+              class="w-full flex gap-3 sm:gap-4 transition-all"
+              :class="msg.role === 'user' ? 'justify-end' : 'justify-start'"
+            >
+
+              <!-- Assistant Avatar -->
+              <div
+                v-if="msg.role === 'assistant'"
+                class="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center shrink-0 shadow-md shadow-brand-500/20 mt-1"
+              >
+                <i data-lucide="sparkles" class="w-4 h-4 text-white"></i>
+              </div>
+
+              <!-- Message Bubble / Content -->
+              <div
+                class="flex flex-col group max-w-[88%] sm:max-w-[80%]"
+                :class="msg.role === 'user' ? 'items-end' : 'items-start'"
+              >
+
+                <!-- User Message Bubble (ChatGPT clean dark pill style) -->
+                <div
+                  v-if="msg.role === 'user'"
+                  class="bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 px-4 py-3 rounded-2xl rounded-tr-sm shadow-xs text-sm leading-relaxed whitespace-pre-wrap select-text border border-slate-200/80 dark:border-slate-700/60"
+                >
+                  {{ msg.content }}
+                </div>
+
+                <!-- Assistant Message Container (Gemini expansive formatting) -->
+                <div
+                  v-else
+                  class="w-full text-slate-900 dark:text-slate-100 py-1 select-text"
+                >
+                  <!-- Formatted Markdown Content -->
+                  <div
+                    class="prose-chat text-slate-800 dark:text-slate-200"
+                    v-html="renderMarkdown(msg.content)"
+                  ></div>
+
+                  <!-- EXCEL REPORT CARD (If attached) -->
+                  <div
+                    v-if="msg.excelBlob"
+                    class="mt-4 p-4 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-slate-900 border border-emerald-500/30 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+                  >
+                    <div class="flex items-center gap-3">
+                      <div class="w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+                        <i data-lucide="file-spreadsheet" class="w-6 h-6"></i>
+                      </div>
+                      <div>
+                        <div class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                          <span>informe_IA_operaciones.xlsx</span>
+                          <span class="text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">
+                            Excel Oficial
+                          </span>
+                        </div>
+                        <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                          Hojas dinÃ¡micas: Resumen Ejecutivo IA, Ambulancias, GrÃºas y Patrullajes
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      @click="descargarExcel(msg.excelBlob)"
+                      class="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl transition shadow-md shadow-emerald-600/25 active:scale-95 shrink-0"
+                    >
+                      <i data-lucide="download" class="w-4 h-4"></i>
+                      <span>Descargar Libro</span>
+                    </button>
+                  </div>
+
+                  <!-- PDF REPORT CARD (If attached) -->
+                  <div
+                    v-if="msg.pdfBlob"
+                    class="mt-4 p-4 rounded-2xl bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-950/40 dark:to-slate-900 border border-red-500/30 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+                  >
+                    <div class="flex items-center gap-3">
+                      <div class="w-12 h-12 rounded-xl bg-red-500/20 border border-red-500/40 flex items-center justify-center text-red-600 dark:text-red-400 shrink-0">
+                        <i data-lucide="file-text" class="w-6 h-6"></i>
+                      </div>
+                      <div>
+                        <div class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                          <span>Informe de Operaciones y Asistencias Viales</span>
+                          <span class="text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full bg-red-500/20 text-red-700 dark:text-red-300">
+                            Documento PDF
+                          </span>
+                        </div>
+                        <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                          Documento oficial consolidado con indicadores, mÃ©tricas operativas y desglose de incidentes.
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      @click="descargarBlob(msg.pdfBlob, 'informe_operaciones_asistencias_viales.pdf')"
+                      class="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-xs font-semibold bg-red-600 hover:bg-red-500 text-white px-4 py-2.5 rounded-xl transition shadow-md shadow-red-600/25 active:scale-95 shrink-0"
+                    >
+                      <i data-lucide="download" class="w-4 h-4"></i>
+                      <span>Descargar PDF</span>
+                    </button>
+                  </div>
+
+                  <!-- VISUAL ANALYTICS DASHBOARD CARD (Interactive Charts) -->
+                  <div
+                    v-if="tieneDatosGraficables(msg.estadisticas)"
+                    class="mt-4 rounded-2xl bg-slate-50/90 dark:bg-slate-900/80 border border-slate-200/90 dark:border-slate-800 p-4 shadow-xs backdrop-blur-xs transition-all"
+                  >
+                    <!-- Header: TÃ­tulo, Periodo y Badges KPI -->
+                    <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800/80">
+                      <div class="flex items-center gap-2">
+                        <div class="w-7 h-7 rounded-lg bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                          <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+                        </div>
+                        <div class="flex items-center gap-2">
+                          <span class="text-xs font-bold text-slate-800 dark:text-slate-200">Panel AnalÃ­tico Operativo</span>
+                          <span v-if="msg.estadisticas.periodo" class="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono">
+                            {{ msg.estadisticas.periodo }}
+                          </span>
+                        </div>
+                      </div>
+
+                      <!-- Badges KPIs de volumen -->
+                      <div class="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold">
+                        <span
+                          v-if="msg.estadisticas.asistencias_totales_combinadas"
+                          class="px-2 py-0.5 rounded-md bg-emerald-100/80 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30"
+                        >
+                          Total: {{ formatearNumero(msg.estadisticas.asistencias_totales_combinadas) }}
+                        </span>
+                        <span
+                          v-if="msg.estadisticas.gruas_total"
+                          class="px-2 py-0.5 rounded-md bg-amber-100/80 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-500/30"
+                        >
+                          ðŸšœ {{ formatearNumero(msg.estadisticas.gruas_total) }} grÃºas
+                        </span>
+                        <span
+                          v-if="msg.estadisticas.ambulancias_total"
+                          class="px-2 py-0.5 rounded-md bg-rose-100/80 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-500/30"
+                        >
+                          ðŸš‘ {{ formatearNumero(msg.estadisticas.ambulancias_total) }} ambulancias
+                        </span>
+                        <span
+                          v-if="msg.estadisticas.patrullajes_total"
+                          class="px-2 py-0.5 rounded-md bg-blue-100/80 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border border-blue-500/30"
+                        >
+                          ðŸš” {{ formatearNumero(msg.estadisticas.patrullajes_total) }} patrullajes
+                        </span>
+                      </div>
+                    </div>
+
+                    <!-- Visualizaciones GrÃ¡ficas (Grid adaptativo) -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-3.5">
+                      <!-- GrÃ¡fico 1: Puntos y Sectores CrÃ­ticos -->
+                      <div
+                        v-if="tieneDatosSectores(msg.estadisticas)"
+                        class="bg-white dark:bg-slate-800/70 p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-700/60 shadow-2xs flex flex-col justify-between"
+                      >
+                        <div class="text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-2 flex items-center justify-between">
+                          <span class="flex items-center gap-1.5">
+                            <i data-lucide="map-pin" class="w-3.5 h-3.5 text-emerald-500"></i>
+                            <span>Tramos de Mayor Demanda</span>
+                          </span>
+                          <span class="text-[10px] text-slate-400 font-medium">Top 5</span>
+                        </div>
+                        <div class="relative h-48 w-full">
+                          <canvas :id="'chart-bar-' + idx"></canvas>
+                        </div>
+                      </div>
+
+                      <!-- GrÃ¡fico 2: ProporciÃ³n / DistribuciÃ³n de Causas -->
+                      <div
+                        v-if="tieneDatosDistribucion(msg.estadisticas)"
+                        class="bg-white dark:bg-slate-800/70 p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-700/60 shadow-2xs flex flex-col justify-between"
+                      >
+                        <div class="text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-2 flex items-center justify-between">
+                          <span class="flex items-center gap-1.5">
+                            <i data-lucide="pie-chart" class="w-3.5 h-3.5 text-cyan-500"></i>
+                            <span>{{ getTituloDistribucion(msg.estadisticas) }}</span>
+                          </span>
+                          <span class="text-[10px] text-slate-400 font-medium">DistribuciÃ³n</span>
+                        </div>
+                        <div class="relative h-48 w-full flex items-center justify-center">
+                          <canvas :id="'chart-pie-' + idx"></canvas>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Message Action Toolbar (ChatGPT / Gemini style) -->
+                <div class="flex items-center gap-1.5 mt-1.5 px-1 text-slate-400 text-xs">
+                  <span class="text-[11px] text-slate-400/80 mr-1">{{ msg.timestamp }}</span>
+
+                  <!-- Actions for Assistant Messages -->
+                  <template v-if="msg.role === 'assistant'">
+                    <button
+                      @click="copiarAlPortapapeles(msg.content, $event)"
+                      class="p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition"
+                      title="Copiar texto"
+                    >
+                      <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                    </button>
+
+                    <button
+                      @click="toggleVozTexto(msg.content, idx)"
+                      class="p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition"
+                      :class="indiceVozActiva === idx ? 'text-brand-500 bg-brand-500/10' : ''"
+                      :title="indiceVozActiva === idx ? 'Detener lectura' : 'Leer en voz alta'"
+                    >
+                      <i v-if="indiceVozActiva === idx" data-lucide="volume-x" class="w-3.5 h-3.5"></i>
+                      <i v-else data-lucide="volume-2" class="w-3.5 h-3.5"></i>
+                    </button>
+
+                    <button
+                      @click="regenerarRespuesta(idx)"
+                      class="p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition"
+                      title="Regenerar respuesta"
+                    >
+                      <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                    </button>
+
+                    <button
+                      @click="darFeedback(idx, 'up')"
+                      class="p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-500 transition"
+                      :class="msg.feedback === 'up' ? 'text-emerald-500' : ''"
+                      title="Buena respuesta"
+                    >
+                      <i data-lucide="thumbs-up" class="w-3.5 h-3.5"></i>
+                    </button>
+
+                    <button
+                      @click="darFeedback(idx, 'down')"
+                      class="p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-red-500 transition"
+                      :class="msg.feedback === 'down' ? 'text-red-500' : ''"
+                      title="Respuesta deficiente"
+                    >
+                      <i data-lucide="thumbs-down" class="w-3.5 h-3.5"></i>
+                    </button>
+
+                    <!-- BotÃ³n Exportar PDF con Logo COSAD 25 -->
+                    <button
+                      @click="exportarMensajePDF(msg)"
+                      class="flex items-center gap-1 px-1.5 py-0.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-red-500 transition text-slate-400"
+                      title="Descargar informe en PDF"
+                    >
+                      <i data-lucide="file-text" class="w-3.5 h-3.5 text-red-500"></i>
+                      <span class="text-[10px] font-medium hidden sm:inline text-slate-600 dark:text-slate-300">PDF</span>
+                    </button>
+                  </template>
+
+                  <!-- Actions for User Messages -->
+                  <template v-else>
+                    <button
+                      @click="editarMensajeUsuario(msg.content)"
+                      class="p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition"
+                      title="Editar y reenviar consulta"
+                    >
+                      <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                    </button>
+                    <button
+                      @click="copiarAlPortapapeles(msg.content, $event)"
+                      class="p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition"
+                      title="Copiar texto"
+                    >
+                      <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                    </button>
+                  </template>
+
+                </div>
+
+              </div>
+
+              <!-- User Avatar -->
+              <div
+                v-if="msg.role === 'user'"
+                class="w-8 h-8 rounded-xl bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 flex items-center justify-center shrink-0 mt-1"
+              >
+                <i data-lucide="user" class="w-4 h-4 text-slate-600 dark:text-slate-300"></i>
+              </div>
+
+            </div>
+
+            <!-- THINKING / REASONING INDICATOR (Gemini Shimmer Bar) -->
+            <div v-if="cargando" class="w-full flex gap-3 sm:gap-4 animate-fade-in">
+              <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center shrink-0 shadow-md shadow-brand-500/20">
+                <i data-lucide="sparkles" class="w-4 h-4 text-white animate-spin"></i>
+              </div>
+              <div class="flex-1 max-w-2xl">
+                <!-- Glowing Shimmer Bar -->
+                <div class="h-2 rounded-full thinking-gradient w-full mb-3 opacity-80"></div>
+                <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                  <span class="w-2 h-2 rounded-full bg-brand-500 animate-pulse"></span>
+                  <span>{{ textoEstadoCarga }}</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+        <!-- SCROLL TO BOTTOM FLOATING BUTTON -->
+        <button
+          v-if="mostrarBotonScrollAbajo"
+          @click="scrollToBottom(true)"
+          class="absolute bottom-24 right-6 p-2 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xl text-slate-600 dark:text-slate-300 hover:text-brand-500 transition z-20 active:scale-95"
+          title="Bajar al final"
+        >
+          <i data-lucide="arrow-down" class="w-4 h-4"></i>
+        </button>
+
+        <!-- FLOATING INPUT AREA (ChatGPT / Gemini pill style) -->
+        <div class="p-3 sm:p-5 border-t border-slate-200/80 dark:border-slate-800/80 bg-white/90 dark:bg-[#0f172a]/90 backdrop-blur-md shrink-0">
+          <div class="max-w-3xl mx-auto relative">
+
+            <!-- Suggested chips above input on active conversation -->
+            <div v-if="mensajesActuales.length > 0 && !cargando" class="flex items-center gap-1.5 overflow-x-auto pb-2 mb-1 scrollbar-none text-xs text-slate-500">
+              <button
+                @click="enviarPromptSugerido('Genera un informe oficial en PDF del mes actual')"
+                class="px-2.5 py-1 rounded-full bg-red-50 dark:bg-red-950/40 border border-red-200/60 dark:border-red-900/60 hover:bg-red-100 dark:hover:bg-red-900/60 text-red-700 dark:text-red-300 transition whitespace-nowrap flex items-center gap-1 font-medium"
+              >
+                <span>ðŸ“„ Descargar en PDF</span>
+              </button>
+              <button
+                @click="enviarPromptSugerido('Genera un excel con estos datos')"
+                class="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800/70 hover:bg-slate-200 dark:hover:bg-slate-700/80 text-slate-600 dark:text-slate-300 transition whitespace-nowrap flex items-center gap-1"
+              >
+                <span>ðŸ“Š Descargar en Excel</span>
+              </button>
+              <button
+                @click="enviarPromptSugerido('Â¿CuÃ¡les fueron las causas principales de las asistencias?')"
+                class="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800/70 hover:bg-slate-200 dark:hover:bg-slate-700/80 text-slate-600 dark:text-slate-300 transition whitespace-nowrap flex items-center gap-1"
+              >
+                <span>ðŸ” Causas principales</span>
+              </button>
+              <button
+                @click="enviarPromptSugerido('Dame un resumen en lista de viÃ±etas')"
+                class="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800/70 hover:bg-slate-200 dark:hover:bg-slate-700/80 text-slate-600 dark:text-slate-300 transition whitespace-nowrap flex items-center gap-1"
+              >
+                <span>ðŸ“‹ Resumen ejecutivo</span>
+              </button>
+            </div>
+
+            <!-- Input Box Pill Container -->
+            <form
+              @submit.prevent="enviarMensaje"
+              class="relative flex items-end gap-2 bg-slate-100/90 dark:bg-slate-800/80 border border-slate-300/80 dark:border-slate-700/80 rounded-2xl sm:rounded-3xl p-2 sm:p-2.5 focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/20 transition-all shadow-lg"
+            >
+
+              <!-- Quick Templates dropdown button -->
+              <div class="relative">
+                <button
+                  type="button"
+                  @click="mostrarTemplatesMenu = !mostrarTemplatesMenu"
+                  class="p-2 rounded-xl text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 transition"
+                  title="Plantillas rÃ¡pidas de consulta"
+                >
+                  <i data-lucide="layout-grid" class="w-5 h-5"></i>
+                </button>
+
+                <!-- Templates Dropdown Menu -->
+                <div
+                  v-if="mostrarTemplatesMenu"
+                  class="absolute bottom-12 left-0 w-64 rounded-2xl p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl z-50 text-xs space-y-1"
+                >
+                  <div class="px-2 py-1 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                    Plantillas de OperaciÃ³n
+                  </div>
+                  <button
+                    type="button"
+                    @click="usarPlantilla('Â¿QuÃ© asistencias de ambulancias ocurrieron durante la Ãºltima guardia?')"
+                    class="w-full text-left px-2.5 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition flex items-center gap-2"
+                  >
+                    <span>ðŸš‘</span>
+                    <span>Ambulancias de la guardia</span>
+                  </button>
+                  <button
+                    type="button"
+                    @click="usarPlantilla('Genera un informe en PDF de las operaciones recientes')"
+                    class="w-full text-left px-2.5 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-red-600 dark:text-red-400 transition flex items-center gap-2"
+                  >
+                    <span>ðŸ“„</span>
+                    <span>Informe en PDF</span>
+                  </button>
+                  <button
+                    type="button"
+                    @click="usarPlantilla('Exportar informe completo a Excel con ambulancias, grÃºas y patrullaje')"
+                    class="w-full text-left px-2.5 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-emerald-600 dark:text-emerald-400 transition flex items-center gap-2"
+                  >
+                    <span>ðŸ“Š</span>
+                    <span>Excel consolidado integral</span>
+                  </button>
+                  <button
+                    type="button"
+                    @click="usarPlantilla('Incidentes graves o fatales en los Ãºltimos 30 dÃ­as')"
+                    class="w-full text-left px-2.5 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-amber-600 dark:text-amber-400 transition flex items-center gap-2"
+                  >
+                    <span>âš ï¸</span>
+                    <span>Incidentes de alta gravedad</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Main Textarea (Auto-expanding) -->
+              <textarea
+                ref="promptTextarea"
+                v-model="promptInput"
+                rows="1"
+                placeholder="Pregunta a VialBot AI o solicita un reporte en PDF / Excel..."
+                class="flex-1 bg-transparent text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm focus:outline-none resize-none px-2 py-1.5 max-h-40 overflow-y-auto"
+                @keydown="handleKeyDown"
+                @input="autoResize"
+                :disabled="cargando"
+              ></textarea>
+
+              <!-- Voice Input Button (Web Speech API) -->
+              <button
+                type="button"
+                @click="toggleReconocimientoVoz"
+                class="p-2 rounded-xl transition text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700/60"
+                :class="grabandoVoz ? 'mic-recording text-red-500 bg-red-500/10' : ''"
+                :title="grabandoVoz ? 'Detener dictado' : 'Dictar consulta por voz'"
+              >
+                <i v-if="grabandoVoz" data-lucide="mic-off" class="w-5 h-5 text-red-500"></i>
+                <i v-else data-lucide="mic" class="w-5 h-5"></i>
+              </button>
+
+              <!-- Submit / Stop Button (ChatGPT Style) -->
+              <button
+                v-if="!cargando"
+                type="submit"
+                :disabled="!promptInput.trim()"
+                class="h-9 w-9 shrink-0 bg-brand-600 hover:bg-brand-500 disabled:opacity-40 disabled:hover:bg-brand-600 text-white rounded-xl sm:rounded-2xl flex items-center justify-center transition shadow-md shadow-brand-600/20 active:scale-95 cursor-pointer disabled:cursor-not-allowed"
+                title="Enviar mensaje (Enter)"
+              >
+                <i data-lucide="arrow-up" class="w-4 h-4"></i>
+              </button>
+
+              <!-- Stop Generation Button (When loading) -->
+              <button
+                v-else
+                type="button"
+                @click="cancelarGeneracion"
+                class="h-9 w-9 shrink-0 bg-slate-900 dark:bg-slate-200 text-white dark:text-slate-900 rounded-xl sm:rounded-2xl flex items-center justify-center transition shadow-md hover:opacity-90 active:scale-95 cursor-pointer"
+                title="Detener respuesta (Esc)"
+              >
+                <i data-lucide="square" class="w-3.5 h-3.5 fill-current"></i>
+              </button>
+
+            </form>
+
+            <!-- Keyboard shortcut footnote -->
+            <div class="flex items-center justify-between text-[11px] text-slate-400 dark:text-slate-500 mt-2 px-2">
+              <span class="truncate">Presiona <kbd class="px-1 py-0.5 rounded bg-slate-200 dark:bg-slate-800 font-mono text-[10px]">Enter</kbd> para enviar â€¢ <kbd class="px-1 py-0.5 rounded bg-slate-200 dark:bg-slate-800 font-mono text-[10px]">Shift+Enter</kbd> salto de lÃ­nea</span>
+              <span class="hidden sm:inline-flex items-center gap-1">
+                <i data-lucide="shield-check" class="w-3 h-3 text-emerald-500"></i> ConexiÃ³n Cifrada VIALPROD
+              </span>
+            </div>
+
+          </div>
+        </div>
+
+      </main>
+
+    </div>
+
+    <!-- COMMAND PALETTE MODAL (Ctrl + K) -->
+    <div
+      v-if="mostrarCommandPalette"
+      @click.self="mostrarCommandPalette = false"
+      class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-start justify-center pt-20 px-4 animate-fade-in"
+    >
+      <div class="w-full max-w-xl bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden">
+        <div class="p-3 border-b border-slate-200 dark:border-slate-800 flex items-center gap-3">
+          <i data-lucide="search" class="w-5 h-5 text-slate-400"></i>
+          <input
+            ref="commandInput"
+            v-model="filtroComando"
+            type="text"
+            placeholder="Escribe una acciÃ³n, plantilla o busca un chat..."
+            class="w-full bg-transparent text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none"
+            @keydown.esc="mostrarCommandPalette = false"
+          >
+          <kbd class="text-[11px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-400 font-mono">ESC</kbd>
+        </div>
+
+        <div class="p-2 max-h-80 overflow-y-auto space-y-1 text-xs">
+          <div class="px-2 py-1 text-[11px] font-semibold text-slate-400 uppercase">Acciones directas</div>
+          <button
+            @click="crearNuevaConversacion(); mostrarCommandPalette = false;"
+            class="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center justify-between"
+          >
+            <span class="flex items-center gap-2"><i data-lucide="plus" class="w-4 h-4 text-brand-500"></i> Iniciar nuevo chat</span>
+            <kbd class="font-mono text-[10px] text-slate-400">Ctrl+O</kbd>
+          </button>
+          <button
+            @click="toggleTheme(); mostrarCommandPalette = false;"
+            class="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center justify-between"
+          >
+            <span class="flex items-center gap-2"><i data-lucide="sun-moon" class="w-4 h-4 text-amber-500"></i> Alternar tema claro / oscuro</span>
+          </button>
+          <button
+            @click="ejecutarPlantillaRapida('excel'); mostrarCommandPalette = false;"
+            class="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-emerald-600 dark:text-emerald-400 flex items-center justify-between font-medium"
+          >
+            <span class="flex items-center gap-2"><i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Generar y descargar reporte Excel</span>
+          </button>
+
+          <div class="px-2 pt-2 pb-1 text-[11px] font-semibold text-slate-400 uppercase">Conversaciones Recientes</div>
+          <button
+            v-for="c in conversacionesRecientesPalette"
+            :key="c.id"
+            @click="seleccionarConversacion(c.id); mostrarCommandPalette = false;"
+            class="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center gap-2 truncate"
+          >
+            <i data-lucide="message-square" class="w-3.5 h-3.5 text-slate-400 shrink-0"></i>
+            <span class="truncate">{{ c.titulo }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS MODAL -->
+    <div
+      v-if="mostrarConfiguracion"
+      @click.self="mostrarConfiguracion = false"
+      class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in"
+    >
+      <div class="w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col">
+        <div class="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-xl bg-brand-500/10 text-brand-500 flex items-center justify-center">
+              <i data-lucide="settings-2" class="w-4 h-4"></i>
+            </div>
+            <h3 class="font-bold text-slate-900 dark:text-white">ConfiguraciÃ³n del Asistente</h3>
+          </div>
+          <button @click="mostrarConfiguracion = false" class="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-white transition">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <div class="p-6 space-y-5 text-sm">
+          <!-- Tema -->
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="font-medium text-slate-800 dark:text-slate-200">Tema de Interfaz</div>
+              <div class="text-xs text-slate-400">Modo oscuro estilo Gemini o claro minimalista</div>
+            </div>
+            <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+              <button
+                @click="setTheme('light')"
+                class="px-3 py-1 rounded-lg text-xs font-medium transition"
+                :class="!isDark ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-400 hover:text-white'"
+              >
+                Claro
+              </button>
+              <button
+                @click="setTheme('dark')"
+                class="px-3 py-1 rounded-lg text-xs font-medium transition"
+                :class="isDark ? 'bg-slate-700 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+              >
+                Oscuro
+              </button>
+            </div>
+          </div>
+
+          <!-- Efectos de Sonido -->
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="font-medium text-slate-800 dark:text-slate-200">Efectos de Sonido</div>
+              <div class="text-xs text-slate-400">Tonos sutiles al enviar y recibir respuestas</div>
+            </div>
+            <button
+              @click="config.sonido = !config.sonido; guardarConfiguracion();"
+              class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
+              :class="config.sonido ? 'bg-brand-500' : 'bg-slate-300 dark:bg-slate-700'"
+            >
+              <span
+                class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out"
+                :class="config.sonido ? 'translate-x-5' : 'translate-x-0'"
+              ></span>
+            </button>
+          </div>
+
+          <!-- Velocidad de Lectura Voz -->
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="font-medium text-slate-800 dark:text-slate-200">Velocidad de Voz (TTS)</span>
+              <span class="font-mono text-xs text-slate-400">{{ config.velocidadVoz }}x</span>
+            </div>
+            <input
+              type="range"
+              min="0.75"
+              max="1.5"
+              step="0.25"
+              v-model.number="config.velocidadVoz"
+              @change="guardarConfiguracion"
+              class="w-full accent-brand-500 cursor-pointer"
+            >
+          </div>
+
+          <!-- InformaciÃ³n del Sistema -->
+          <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 text-xs space-y-1.5 text-slate-500 dark:text-slate-400">
+            <div class="flex justify-between">
+              <span>Motor Inteligente:</span>
+              <span class="font-semibold text-slate-700 dark:text-slate-200">Ollama Qwen 2.5 (7B Local)</span>
+            </div>
+            <div class="flex justify-between">
+              <span>Base de Datos:</span>
+              <span class="font-semibold text-slate-700 dark:text-slate-200">Microsoft SQL Server (VIALPROD)</span>
+            </div>
+            <div class="flex justify-between">
+              <span>ExportaciÃ³n:</span>
+              <span class="font-semibold text-emerald-600 dark:text-emerald-400">Excel Abierto (openpyxl)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex justify-end">
+          <button
+            @click="mostrarConfiguracion = false"
+            class="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-medium text-xs transition shadow-md active:scale-95"
+          >
+            Listo
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div
+      v-if="toast.visible"
+      class="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-medium shadow-2xl transition-all duration-300 animate-fade-in"
+    >
+      <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400 dark:text-emerald-600"></i>
+      <span>{{ toast.mensaje }}</span>
+    </div>
+
+  </div>
+
+  <!-- APPLICATION VUE LOGIC -->
+  <script>
+    const { createApp, ref, computed, onMounted, nextTick, watch } = Vue;
+
+    createApp({
+      setup() {
+        // --- ESTADO PRINCIPAL ---
+        const isDark = ref(document.documentElement.classList.contains('dark'));
+        const sidebarOpen = ref(window.innerWidth >= 1024);
+        const isMobile = ref(window.innerWidth < 1024);
+        const promptInput = ref('');
+        const cargando = ref(false);
+        const textoEstadoCarga = ref('Consultando base de datos VIALPROD...');
+        const mostrarBotonScrollAbajo = ref(false);
+        const mostrarModelInfo = ref(false);
+        const mostrarTemplatesMenu = ref(false);
+        const mostrarCommandPalette = ref(false);
+        const mostrarConfiguracion = ref(false);
+        const filtroBusqueda = ref('');
+        const filtroComando = ref('');
+        const chatContainer = ref(null);
+        const promptTextarea = ref(null);
+        const commandInput = ref(null);
+        const grabandoVoz = ref(false);
+        const indiceVozActiva = ref(null);
+
+        // --- CONEXIÃ“N Y ESTADO BD ---
+        const dbStatus = ref('healthy');
+        const dbStatusText = ref('Conectado');
+        const dbStatusDetail = ref('ConexiÃ³n activa a SQL Server (VIALPROD)');
+        const dbLatency = ref(null);
+
+        // --- CONTROLADOR DE ABORT (Para detener generaciÃ³n) ---
+        let abortController = null;
+        let speechRecognitionInstance = null;
+
+        // --- CONFIGURACIÃ“N PERSISTENTE ---
+        const defaultEndpoint = (window.location.protocol === 'file:' || !window.location.host)
+          ? 'http://127.0.0.1:8000/api/v1/ai/analizar-jornada'
+          : '/api/v1/ai/analizar-jornada';
+
+        const config = ref({
+          sonido: true,
+          velocidadVoz: 1.0,
+          endpoint: defaultEndpoint,
+        });
+
+        // --- TOAST ---
+        const toast = ref({
+          visible: false,
+          mensaje: '',
+          timer: null,
+        });
+
+        function mostrarToast(mensaje) {
+          toast.value.mensaje = mensaje;
+          toast.value.visible = true;
+          if (toast.value.timer) clearTimeout(toast.value.timer);
+          toast.value.timer = setTimeout(() => {
+            toast.value.visible = false;
+          }, 2600);
+          nextTick(() => lucide.createIcons());
+        }
+
+        // --- AUDIO SINTÃ‰TICO SUTIL ---
+        function reproducirSonido(tipo) {
+          if (!config.value.sonido) return;
+          try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+
+            if (tipo === 'send') {
+              osc.frequency.setValueAtTime(420, ctx.currentTime);
+              osc.frequency.exponentialRampToValueAtTime(620, ctx.currentTime + 0.1);
+              gain.gain.setValueAtTime(0.06, ctx.currentTime);
+              gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+              osc.start();
+              osc.stop(ctx.currentTime + 0.1);
+            } else if (tipo === 'receive') {
+              osc.frequency.setValueAtTime(540, ctx.currentTime);
+              osc.frequency.exponentialRampToValueAtTime(840, ctx.currentTime + 0.16);
+              gain.gain.setValueAtTime(0.08, ctx.currentTime);
+              gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.16);
+              osc.start();
+              osc.stop(ctx.currentTime + 0.16);
+            }
+          } catch (_) {}
+        }
+
+        // --- GESTIÃ“N DE CONVERSACIONES MULTI-SESIÃ“N (ChatGPT Style) ---
+        const conversaciones = ref([]);
+        const chatActualId = ref(null);
+
+        function cargarConversaciones() {
+          try {
+            const data = localStorage.getItem('vialbot_chats_v2');
+            if (data) {
+              conversaciones.value = JSON.parse(data);
+            }
+          } catch (e) {
+            console.error("Error al cargar chats de localStorage:", e);
+          }
+
+          if (!conversaciones.value || conversaciones.value.length === 0) {
+            crearNuevaConversacion();
+          } else {
+            chatActualId.value = conversaciones.value[0].id;
+          }
+        }
+
+        function guardarConversaciones() {
+          try {
+            localStorage.setItem('vialbot_chats_v2', JSON.stringify(conversaciones.value));
+          } catch (e) {
+            console.error("Error al guardar chats:", e);
+          }
+        }
+
+        function crearNuevaConversacion() {
+          const nuevoId = 'chat_' + Date.now();
+          const nuevoChat = {
+            id: nuevoId,
+            titulo: 'Nueva consulta',
+            fecha: new Date().toISOString(),
+            mensajes: []
+          };
+          conversaciones.value.unshift(nuevoChat);
+          chatActualId.value = nuevoId;
+          guardarConversaciones();
+          nextTick(() => {
+            if (promptTextarea.value) promptTextarea.value.focus();
+            lucide.createIcons();
+          });
+        }
+
+        function seleccionarConversacion(id) {
+          chatActualId.value = id;
+          if (isMobile.value) sidebarOpen.value = false;
+          nextTick(() => {
+            renderizarTodosLosGraficos();
+            scrollToBottom(false);
+            lucide.createIcons();
+          });
+        }
+
+        function renombrarConversacion(id) {
+          const chat = conversaciones.value.find(c => c.id === id);
+          if (!chat) return;
+          const nuevoTitulo = prompt("Nuevo nombre para esta conversaciÃ³n:", chat.titulo);
+          if (nuevoTitulo && nuevoTitulo.trim()) {
+            chat.titulo = nuevoTitulo.trim();
+            guardarConversaciones();
+            mostrarToast("ConversaciÃ³n renombrada");
+          }
+        }
+
+        function eliminarConversacion(id) {
+          if (!confirm("Â¿Deseas eliminar esta conversaciÃ³n?")) return;
+          conversaciones.value = conversaciones.value.filter(c => c.id !== id);
+          if (conversaciones.value.length === 0) {
+            crearNuevaConversacion();
+          } else if (chatActualId.value === id) {
+            chatActualId.value = conversaciones.value[0].id;
+          }
+          guardarConversaciones();
+          mostrarToast("ConversaciÃ³n eliminada");
+        }
+
+        function confirmarLimpiarTodo() {
+          if (confirm("Â¿Seguro que deseas eliminar todo el historial de conversaciones?")) {
+            conversaciones.value = [];
+            crearNuevaConversacion();
+            mostrarToast("Todo el historial ha sido eliminado");
+          }
+        }
+
+        const conversacionActual = computed(() => {
+          return conversaciones.value.find(c => c.id === chatActualId.value) || { mensajes: [] };
+        });
+
+        const mensajesActuales = computed(() => {
+          return conversacionActual.value.mensajes || [];
+        });
+
+        const conversacionesFiltradas = computed(() => {
+          if (!filtroBusqueda.value.trim()) return conversaciones.value;
+          const q = filtroBusqueda.value.toLowerCase();
+          return conversaciones.value.filter(c => (c.titulo || '').toLowerCase().includes(q));
+        });
+
+        const conversacionesRecientesPalette = computed(() => {
+          return conversaciones.value.slice(0, 5);
+        });
+
+        // --- ENVIAR Y PROCESAR CONSULTA ---
+        async function enviarMensaje() {
+          const texto = promptInput.value.trim();
+          if (!texto || cargando.value) return;
+
+          // Si el chat es nuevo, actualizar el tÃ­tulo con la primera pregunta
+          if (conversacionActual.value.mensajes.length === 0) {
+            const tituloResumido = texto.length > 34 ? texto.substring(0, 34) + '...' : texto;
+            conversacionActual.value.titulo = tituloResumido;
+          }
+
+          const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+          // Agregar mensaje del usuario
+          conversacionActual.value.mensajes.push({
+            role: 'user',
+            content: texto,
+            timestamp: timeStr,
+          });
+
+          promptInput.value = '';
+          autoResize();
+          reproducirSonido('send');
+          cargando.value = true;
+          guardarConversaciones();
+
+          // Ajustar estado de carga dinÃ¡mico
+          if (/pdf/i.test(texto)) {
+            textoEstadoCarga.value = "Compilando informe de operaciones en formato PDF...";
+          } else if (/excel|reporte|informe|descargar/i.test(texto)) {
+            textoEstadoCarga.value = "Procesando datos operativos...";
+          } else {
+            textoEstadoCarga.value = "Consolidando registros de asistencia vial...";
+          }
+
+          // RotaciÃ³n progresiva de estados para retroalimentaciÃ³n visual al usuario
+          let timerCarga = null;
+          const pasosCarga = [
+            "Consolidando registros de asistencia vial...",
+            "Calculando mÃ©tricas operativas y rankings de sectores...",
+            "El modelo Qwen 2.5 estÃ¡ analizando y redactando el informe...",
+            "Estructurando diagnÃ³stico y tramos crÃ­ticos...",
+            "Sintetizando grÃ¡ficos y recomendaciones estratÃ©gicas..."
+          ];
+          let pasoIdx = 0;
+          timerCarga = setInterval(() => {
+            pasoIdx = (pasoIdx + 1) % pasosCarga.length;
+            textoEstadoCarga.value = pasosCarga[pasoIdx];
+          }, 5000);
+
+          scrollToBottom(true);
+          nextTick(() => lucide.createIcons());
+
+          abortController = new AbortController();
+
+          try {
+            // Extraer historial previo (hasta 6 mensajes) para soporte de preguntas encadenadas
+            const historialPrevio = conversacionActual.value.mensajes
+              .slice(0, -1)
+              .slice(-6)
+              .map(m => ({ role: m.role, content: m.content }));
+
+            // Detectar si el usuario pide explÃ­citamente archivo o si es consulta conversacional con streaming
+            const pideArchivo = /\b(pdf|excel|xlsx|descargar|descarga|exportar|exporta|reporte\s+en\s+excel|reporte\s+en\s+pdf)\b/i.test(texto);
+            const endpointUsar = pideArchivo
+              ? config.value.endpoint
+              : config.value.endpoint.replace(/\/analizar-jornada$/, '/analizar-jornada-stream');
+
+            const res = await fetch(endpointUsar, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ pregunta: texto, historial: historialPrevio, session_id: chatActualId.value }),
+              signal: abortController.signal
+            });
+
+            if (!res.ok) {
+              throw new Error(`Error en el servidor: ${res.status} ${res.statusText}`);
+            }
+
+            const contentType = res.headers.get('content-type') || '';
+            const esPdf = contentType.includes('pdf') || res.headers.get('x-es-reporte-pdf') === 'true';
+            const esExcel = contentType.includes('sheet') || res.headers.get('x-es-reporte-excel') === 'true';
+
+            if (esPdf) {
+              let resumenTexto = "He preparado el informe oficial de operaciones y asistencias viales en formato PDF con los datos solicitados.";
+              const b64Header = res.headers.get('X-Resumen-IA-B64');
+              if (b64Header) {
+                try {
+                  resumenTexto = decodeURIComponent(escape(atob(b64Header)));
+                } catch(_) {
+                  try { resumenTexto = atob(b64Header); } catch(__) {}
+                }
+              }
+
+              let statsObj = null;
+              const b64Stats = res.headers.get('X-Estadisticas-B64');
+              if (b64Stats) {
+                try {
+                  statsObj = JSON.parse(decodeURIComponent(escape(atob(b64Stats))));
+                } catch(_) {
+                  try { statsObj = JSON.parse(atob(b64Stats)); } catch(__) {}
+                }
+              }
+
+              const blob = await res.blob();
+              let filename = 'informe_operaciones_asistencias_viales.pdf';
+              const disp = res.headers.get('Content-Disposition') || '';
+              const m = disp.match(/filename="?([^"]+)"?/);
+              if (m) filename = m[1];
+
+              descargarBlob(blob, filename);
+              lanzarConfetti();
+
+              conversacionActual.value.mensajes.push({
+                role: 'assistant',
+                content: resumenTexto,
+                pdfBlob: blob,
+                estadisticas: statsObj,
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              });
+
+              mostrarToast("Informe en PDF descargado");
+
+            } else if (esExcel) {
+              // Resumen desde el header Base64
+              let resumenTexto = "He compilado y estructurado el reporte oficial en formato Excel con las pestaÃ±as y analÃ­tica correspondientes.";
+              const b64Header = res.headers.get('X-Resumen-IA-B64');
+              if (b64Header) {
+                try {
+                  resumenTexto = decodeURIComponent(escape(atob(b64Header)));
+                } catch(_) {
+                  try { resumenTexto = atob(b64Header); } catch(__) {}
+                }
+              }
+
+              let statsObj = null;
+              const b64Stats = res.headers.get('X-Estadisticas-B64');
+              if (b64Stats) {
+                try {
+                  statsObj = JSON.parse(decodeURIComponent(escape(atob(b64Stats))));
+                } catch(_) {
+                  try { statsObj = JSON.parse(atob(b64Stats)); } catch(__) {}
+                }
+              }
+
+              const blob = await res.blob();
+
+              // Auto-descarga y confetti de Ã©xito
+              descargarExcel(blob);
+              lanzarConfetti();
+
+              conversacionActual.value.mensajes.push({
+                role: 'assistant',
+                content: resumenTexto,
+                excelBlob: blob,
+                estadisticas: statsObj,
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              });
+
+              mostrarToast("Reporte Excel generado y descargado");
+
+            } else {
+              // --- STREAMING EN TIEMPO REAL (SSE) ---
+              if (timerCarga) { clearInterval(timerCarga); timerCarga = null; }
+              cargando.value = false;
+
+              const msgAsistente = {
+                role: 'assistant',
+                content: '',
+                estadisticas: null,
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              };
+              conversacionActual.value.mensajes.push(msgAsistente);
+              scrollToBottom(true);
+
+              const reader = res.body.getReader();
+              const decoder = new TextDecoder('utf-8');
+              let buffer = '';
+
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+
+                for (const line of lines) {
+                  const trimmed = line.trim();
+                  if (!trimmed || !trimmed.startsWith('data:')) continue;
+                  const jsonStr = trimmed.replace(/^data:\s*/, '');
+                  if (jsonStr === '[DONE]') break;
+                  try {
+                    const parsed = JSON.parse(jsonStr);
+                    if (parsed.tipo === 'meta') {
+                      msgAsistente.estadisticas = parsed.estadisticas || null;
+                    } else if (parsed.tipo === 'token') {
+                      msgAsistente.content += parsed.contenido;
+                      scrollToBottom();
+                    }
+                  } catch (e) {
+                    console.warn('Error parseando fragmento SSE:', e, jsonStr);
+                  }
+                }
+              }
+
+              if (!msgAsistente.content) {
+                msgAsistente.content = 'No se obtuvo respuesta del modelo.';
+              }
+            }
+
+            reproducirSonido('receive');
+
+          } catch (err) {
+            if (err.name === 'AbortError') {
+              conversacionActual.value.mensajes.push({
+                role: 'assistant',
+                content: "â¹ï¸ *GeneraciÃ³n detenida por el usuario.*",
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              });
+              mostrarToast("GeneraciÃ³n cancelada");
+            } else {
+              console.error(err);
+              let msgError = err.message;
+              if (err.message === 'Failed to fetch') {
+                msgError = "No se pudo conectar con el servidor API local (http://127.0.0.1:8000).\n\n" +
+                  "Verifica que el servicio estÃ© corriendo en tu terminal con: `uvicorn app.main:app --reload`.\n" +
+                  "O si abriste el archivo directamente, accede a travÃ©s de tu navegador en [http://localhost:8000/chat](http://localhost:8000/chat).";
+              }
+              conversacionActual.value.mensajes.push({
+                role: 'assistant',
+                content: `âš ï¸ **OcurriÃ³ un inconveniente al procesar la solicitud:**\n\n${msgError}`,
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              });
+            }
+          } finally {
+            if (timerCarga) clearInterval(timerCarga);
+            cargando.value = false;
+            abortController = null;
+            guardarConversaciones();
+            scrollToBottom(true);
+            nextTick(() => {
+              renderizarTodosLosGraficos();
+              if (promptTextarea.value) promptTextarea.value.focus();
+              lucide.createIcons();
+            });
+          }
+        }
+
+        function cancelarGeneracion() {
+          if (abortController) {
+            abortController.abort();
+          }
+        }
+
+        function descargarBlob(blob, filename) {
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(blob);
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          setTimeout(() => URL.revokeObjectURL(link.href), 2000);
+        }
+
+        function descargarExcel(blob) {
+          descargarBlob(blob, 'informe_IA_operaciones.xlsx');
+        }
+
+        async function exportarMensajePDF(msg) {
+          try {
+            mostrarToast("Generando informe en PDF...");
+            const res = await fetch('/api/v1/ai/exportar-pdf', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                respuesta_ia: msg.content,
+                estadisticas: msg.estadisticas || null
+              })
+            });
+            if (!res.ok) throw new Error(`Error en el servidor: ${res.status}`);
+            const blob = await res.blob();
+            let filename = 'informe_operaciones_asistencias_viales.pdf';
+            const disp = res.headers.get('Content-Disposition') || '';
+            const m = disp.match(/filename="?([^"]+)"?/);
+            if (m) filename = m[1];
+
+            descargarBlob(blob, filename);
+            lanzarConfetti();
+            mostrarToast("Informe en PDF descargado con Ã©xito");
+          } catch (err) {
+            console.error(err);
+            mostrarToast("No se pudo generar el PDF", "error");
+          }
+        }
+
+        function lanzarConfetti() {
+          try {
+            if (typeof confetti === 'function') {
+              confetti({
+                particleCount: 50,
+                spread: 60,
+                origin: { y: 0.8 },
+                colors: ['#10b981', '#34d399', '#059669', '#6ee7b7']
+              });
+            }
+          } catch (_) {}
+        }
+
+        function enviarPromptSugerido(texto) {
+          promptInput.value = texto;
+          autoResize();
+          enviarMensaje();
+        }
+
+        function usarPlantilla(texto) {
+          promptInput.value = texto;
+          mostrarTemplatesMenu.value = false;
+          autoResize();
+          if (promptTextarea.value) promptTextarea.value.focus();
+        }
+
+        function ejecutarPlantillaRapida(tipo) {
+          if (isMobile.value) sidebarOpen.value = false;
+          if (tipo === 'ambulancias') {
+            enviarPromptSugerido('Â¿QuÃ© novedades o traslados hemos registrado hoy con las ambulancias?');
+          } else if (tipo === 'gruas') {
+            enviarPromptSugerido('Â¿CuÃ¡ntos auxilios de grÃºa se han realizado hoy y cuÃ¡les fueron las principales averÃ­as?');
+          } else if (tipo === 'patrullajes') {
+            enviarPromptSugerido('Resumen de novedades registradas en la bitÃ¡cora de patrullaje vial de ayer y hoy.');
+          } else if (tipo === 'excel') {
+            enviarPromptSugerido('Genera un informe completo en Excel con todas las operaciones de este mes');
+          }
+        }
+
+        function editarMensajeUsuario(content) {
+          promptInput.value = content;
+          autoResize();
+          if (promptTextarea.value) {
+            promptTextarea.value.focus();
+            promptTextarea.value.setSelectionRange(content.length, content.length);
+          }
+        }
+
+        function regenerarRespuesta(idx) {
+          // Buscar la pregunta previa del usuario
+          for (let i = idx - 1; i >= 0; i--) {
+            if (conversacionActual.value.mensajes[i].role === 'user') {
+              const promptAnterior = conversacionActual.value.mensajes[i].content;
+              // Eliminar la respuesta actual y reenviar
+              conversacionActual.value.mensajes.splice(idx, 1);
+              promptInput.value = promptAnterior;
+              enviarMensaje();
+              break;
+            }
+          }
+        }
+
+        function darFeedback(idx, tipo) {
+          const msg = conversacionActual.value.mensajes[idx];
+          if (!msg) return;
+          msg.feedback = msg.feedback === tipo ? null : tipo;
+          guardarConversaciones();
+          mostrarToast(tipo === 'up' ? 'Â¡Gracias por tu retroalimentaciÃ³n!' : 'Comentario recibido para mejorar');
+        }
+
+        // --- WEB SPEECH API: RECONOCIMIENTO DE VOZ ---
+        function toggleReconocimientoVoz() {
+          const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+          if (!SpeechRecognition) {
+            alert("Tu navegador no soporta la API de reconocimiento de voz. Usa Chrome o Edge.");
+            return;
+          }
+
+          if (grabandoVoz.value) {
+            if (speechRecognitionInstance) speechRecognitionInstance.stop();
+            grabandoVoz.value = false;
+            return;
+          }
+
+          speechRecognitionInstance = new SpeechRecognition();
+          speechRecognitionInstance.lang = 'es-EC';
+          speechRecognitionInstance.interimResults = true;
+          speechRecognitionInstance.continuous = false;
+
+          speechRecognitionInstance.onstart = () => {
+            grabandoVoz.value = true;
+            mostrarToast("Escuchando... puedes hablar");
+          };
+
+          speechRecognitionInstance.onresult = (event) => {
+            let textoTranscrito = '';
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+              textoTranscrito += event.results[i][0].transcript;
+            }
+            promptInput.value = textoTranscrito;
+            autoResize();
+          };
+
+          speechRecognitionInstance.onerror = (event) => {
+            console.error("Error en reconocimiento de voz:", event.error);
+            grabandoVoz.value = false;
+          };
+
+          speechRecognitionInstance.onend = () => {
+            grabandoVoz.value = false;
+            nextTick(() => lucide.createIcons());
+          };
+
+          speechRecognitionInstance.start();
+        }
+
+        // --- SPEECH SYNTHESIS: LECTURA EN VOZ ALTA ---
+        function toggleVozTexto(texto, idx) {
+          if (!('speechSynthesis' in window)) {
+            alert("Tu navegador no soporta sÃ­ntesis de voz.");
+            return;
+          }
+
+          if (indiceVozActiva.value === idx) {
+            window.speechSynthesis.cancel();
+            indiceVozActiva.value = null;
+            return;
+          }
+
+          window.speechSynthesis.cancel();
+
+          // Limpiar Markdown bÃ¡sico para lectura fluida
+          const textoPlano = texto.replace(/[#*_`\[\]]/g, '').replace(/<[^>]*>/g, '');
+          const utterance = new SpeechSynthesisUtterance(textoPlano);
+          utterance.lang = 'es-ES';
+          utterance.rate = config.value.velocidadVoz || 1.0;
+
+          utterance.onstart = () => {
+            indiceVozActiva.value = idx;
+            nextTick(() => lucide.createIcons());
+          };
+
+          utterance.onend = () => {
+            indiceVozActiva.value = null;
+            nextTick(() => lucide.createIcons());
+          };
+
+          utterance.onerror = () => {
+            indiceVozActiva.value = null;
+            nextTick(() => lucide.createIcons());
+          };
+
+          window.speechSynthesis.speak(utterance);
+        }
+
+        // --- RENDERIZADO MARKDOWN & RESALTADO DE CÃ“DIGO ---
+        window.copiarBloqueCodigo = function(btn) {
+          const pre = btn.closest('.code-block-wrapper').querySelector('code');
+          if (!pre) return;
+          navigator.clipboard.writeText(pre.innerText).then(() => {
+            const original = btn.innerHTML;
+            btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-400"><polyline points="20 6 9 17 4 12"/></svg> <span class="text-emerald-400">Â¡Copiado!</span>`;
+            setTimeout(() => { btn.innerHTML = original; }, 2000);
+          });
+        };
+
+        const markedRenderer = new marked.Renderer();
+        markedRenderer.code = function(codeArg, langArg) {
+          const text = typeof codeArg === 'object' ? (codeArg.text || '') : (codeArg || '');
+          const rawLang = typeof codeArg === 'object' ? (codeArg.lang || '') : (langArg || '');
+          const lang = (rawLang || '').trim().toLowerCase();
+
+          let highlighted = text;
+          if (lang && hljs.getLanguage(lang)) {
+            try {
+              highlighted = hljs.highlight(text, { language: lang }).value;
+            } catch (_) {
+              highlighted = escapeHtml(text);
+            }
+          } else {
+            try {
+              highlighted = hljs.highlightAuto(text).value;
+            } catch (_) {
+              highlighted = escapeHtml(text);
+            }
+          }
+
+          return `<div class="code-block-wrapper rounded-xl overflow-hidden my-3 border border-slate-700/60 bg-[#181825] shadow-md">
+            <div class="flex items-center justify-between px-3.5 py-1.5 bg-[#11111b] border-b border-slate-700/50 text-[11px] text-slate-400 font-mono select-none">
+              <span class="font-semibold">${lang || 'cÃ³digo'}</span>
+              <button onclick="window.copiarBloqueCodigo(this)" class="hover:text-white transition flex items-center gap-1 text-[11px]">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                <span>Copiar cÃ³digo</span>
+              </button>
+            </div>
+            <pre class="p-3.5 overflow-x-auto text-[13px] leading-relaxed"><code class="hljs language-${lang}">${highlighted}</code></pre>
+          </div>`;
+        };
+
+        marked.use({ renderer: markedRenderer, breaks: true, gfm: true });
+
+        function escapeHtml(str) {
+          return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        function renderMarkdown(content) {
+          if (!content) return '';
+          try {
+            let procesado = content;
+            if (window.katex) {
+              procesado = procesado.replace(/\$\$([\s\S]+?)\$\$/g, (_, math) => {
+                try { return katex.renderToString(math, { displayMode: true }); } catch (_) { return `$$${math}$$`; }
+              });
+              procesado = procesado.replace(/\$([^\$\n]+?)\$/g, (_, math) => {
+                try { return katex.renderToString(math, { displayMode: false }); } catch (_) { return `$${math}$`; }
+              });
+            }
+
+            const rawHtml = marked.parse(procesado);
+            return DOMPurify.sanitize(rawHtml, { ADD_ATTR: ['onclick', 'target'] });
+          } catch (e) {
+            return content;
+          }
+        }
+
+        function copiarAlPortapapeles(texto, event) {
+          navigator.clipboard.writeText(texto).then(() => {
+            mostrarToast("Texto copiado al portapapeles");
+          }).catch(() => {
+            mostrarToast("No se pudo copiar el texto");
+          });
+        }
+
+        // --- MANEJO DEL TECLADO & TAMAÃ‘O DE TEXTAREA ---
+        function handleKeyDown(e) {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            enviarMensaje();
+          } else if (e.key === 'Escape' && cargando.value) {
+            cancelarGeneracion();
+          }
+        }
+
+        function autoResize() {
+          const el = promptTextarea.value;
+          if (!el) return;
+          el.style.height = 'auto';
+          el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+        }
+
+        function scrollToBottom(smooth = true) {
+          nextTick(() => {
+            if (chatContainer.value) {
+              chatContainer.value.scrollTo({
+                top: chatContainer.value.scrollHeight,
+                behavior: smooth ? 'smooth' : 'auto'
+              });
+            }
+          });
+        }
+
+        function handleScroll() {
+          if (!chatContainer.value) return;
+          const { scrollTop, scrollHeight, clientHeight } = chatContainer.value;
+          mostrarBotonScrollAbajo.value = (scrollHeight - scrollTop - clientHeight) > 160;
+        }
+
+        // --- PALETA DE COMANDOS Y ATRIBUTOS GLOBALES ---
+        function abrirCommandPalette() {
+          mostrarCommandPalette.value = true;
+          filtroComando.value = '';
+          nextTick(() => {
+            if (commandInput.value) commandInput.value.focus();
+            lucide.createIcons();
+          });
+        }
+
+
+        // --- GESTIÃ“N DE GRÃFICOS INTERACTIVOS (Chart.js) ---
+        const chartInstances = {};
+
+        function formatearNumero(val) {
+          return Number(val || 0).toLocaleString();
+        }
+
+        function tieneDatosGraficables(stats) {
+          if (!stats || typeof stats !== 'object') return false;
+          const totalG = Number(stats.gruas_total) || 0;
+          const totalA = Number(stats.ambulancias_total) || 0;
+          const totalP = Number(stats.patrullajes_total) || 0;
+          const totalC = Number(stats.asistencias_totales_combinadas) || 0;
+          return (totalG + totalA + totalP + totalC) > 0;
+        }
+
+        function tieneDatosSectores(stats) {
+          if (!stats) return false;
+          return (
+            (Array.isArray(stats.asistencias_top_tramos) && stats.asistencias_top_tramos.length > 0) ||
+            (Array.isArray(stats.gruas_top_sectores) && stats.gruas_top_sectores.length > 0) ||
+            (Array.isArray(stats.ambulancias_top_sectores) && stats.ambulancias_top_sectores.length > 0)
+          );
+        }
+
+        function tieneDatosDistribucion(stats) {
+          if (!stats) return false;
+          if ((Number(stats.gruas_total) || 0) > 0 && (Number(stats.ambulancias_total) || 0) > 0) return true;
+          if (Array.isArray(stats.gruas_top_motivos) && stats.gruas_top_motivos.length > 0) return true;
+          if (Array.isArray(stats.ambulancias_top_incidentes) && stats.ambulancias_top_incidentes.length > 0) return true;
+          if (Array.isArray(stats.gruas_top_vehiculos) && stats.gruas_top_vehiculos.length > 0) return true;
+          return false;
+        }
+
+        function getTituloDistribucion(stats) {
+          if (!stats) return "DistribuciÃ³n";
+          if ((Number(stats.gruas_total) || 0) > 0 && (Number(stats.ambulancias_total) || 0) > 0) {
+            return "GrÃºas vs Ambulancias";
+          }
+          if (Array.isArray(stats.gruas_top_motivos) && stats.gruas_top_motivos.length > 0) {
+            return "Motivos de Auxilio MecÃ¡nico";
+          }
+          if (Array.isArray(stats.ambulancias_top_incidentes) && stats.ambulancias_top_incidentes.length > 0) {
+            return "DiagnÃ³sticos MÃ©dicos";
+          }
+          if (Array.isArray(stats.gruas_top_vehiculos) && stats.gruas_top_vehiculos.length > 0) {
+            return "Tipo de VehÃ­culo Asistido";
+          }
+          return "DistribuciÃ³n Operativa";
+        }
+
+        function renderizarGraficosParaMensaje(msg, idx) {
+          if (typeof Chart === 'undefined') return;
+          const stats = msg ? msg.estadisticas : null;
+          if (!stats || !tieneDatosGraficables(stats)) return;
+
+          const dark = isDark.value;
+          const textColor = dark ? '#cbd5e1' : '#475569';
+          const gridColor = dark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
+
+          // 1. GrÃ¡fico de Sectores / Tramos (Barras Horizontales para legibilidad completa)
+          if (tieneDatosSectores(stats)) {
+            const barCanvas = document.getElementById('chart-bar-' + idx);
+            if (barCanvas) {
+              const barKey = 'bar-' + idx;
+              if (chartInstances[barKey]) {
+                chartInstances[barKey].destroy();
+              }
+
+              let labels = [];
+              let dataValues = [];
+
+              if (Array.isArray(stats.asistencias_top_tramos) && stats.asistencias_top_tramos.length > 0) {
+                labels = stats.asistencias_top_tramos.map(item => item.sector || 'Sin sector');
+                dataValues = stats.asistencias_top_tramos.map(item => Number(item.asistencias_totales) || 0);
+              } else if (Array.isArray(stats.gruas_top_sectores) && stats.gruas_top_sectores.length > 0) {
+                labels = stats.gruas_top_sectores.map(item => item.sector || 'Sin sector');
+                dataValues = stats.gruas_top_sectores.map(item => Number(item.asistencias) || 0);
+              } else if (Array.isArray(stats.ambulancias_top_sectores) && stats.ambulancias_top_sectores.length > 0) {
+                labels = stats.ambulancias_top_sectores.map(item => item.sector || 'Sin sector');
+                dataValues = stats.ambulancias_top_sectores.map(item => Number(item.atenciones) || 0);
+              }
+
+              chartInstances[barKey] = new Chart(barCanvas, {
+                type: 'bar',
+                data: {
+                  labels: labels,
+                  datasets: [{
+                    label: 'Asistencias',
+                    data: dataValues,
+                    backgroundColor: [
+                      'rgba(16, 185, 129, 0.85)',
+                      'rgba(6, 182, 212, 0.85)',
+                      'rgba(59, 130, 246, 0.85)',
+                      'rgba(139, 92, 246, 0.85)',
+                      'rgba(245, 158, 11, 0.85)'
+                    ],
+                    borderColor: [
+                      '#10b981',
+                      '#06b6d4',
+                      '#3b82f6',
+                      '#8b5cf6',
+                      '#f59e0b'
+                    ],
+                    borderWidth: 1.5,
+                    borderRadius: 6,
+                  }]
+                },
+                options: {
+                  indexAxis: 'y',
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                      padding: 8,
+                      cornerRadius: 8,
+                      callbacks: {
+                        label: function(ctx) {
+                          return ' ' + ctx.parsed.x + ' eventos registrados';
+                        }
+                      }
+                    }
+                  },
+                  scales: {
+                    x: {
+                      beginAtZero: true,
+                      grid: { color: gridColor },
+                      ticks: { color: textColor, font: { size: 11 } }
+                    },
+                    y: {
+                      grid: { display: false },
+                      ticks: {
+                        color: textColor,
+                        font: { size: 11, weight: '500' },
+                        callback: function(val, i) {
+                          const lbl = this.getLabelForValue(val) || '';
+                          return lbl.length > 22 ? lbl.substring(0, 20) + '...' : lbl;
+                        }
+                      }
+                    }
+                  }
+                }
+              });
+            }
+          }
+
+          // 2. GrÃ¡fico de DistribuciÃ³n (Doughnut / Anillo limpio con leyenda)
+          if (tieneDatosDistribucion(stats)) {
+            const pieCanvas = document.getElementById('chart-pie-' + idx);
+            if (pieCanvas) {
+              const pieKey = 'pie-' + idx;
+              if (chartInstances[pieKey]) {
+                chartInstances[pieKey].destroy();
+              }
+
+              let pieLabels = [];
+              let pieData = [];
+              let pieColors = [];
+
+              if ((Number(stats.gruas_total) || 0) > 0 && (Number(stats.ambulancias_total) || 0) > 0) {
+                pieLabels = ['GrÃºas (Auxilio)', 'Ambulancias (Emergencias)'];
+                pieData = [Number(stats.gruas_total), Number(stats.ambulancias_total)];
+                pieColors = ['#f59e0b', '#ef4444'];
+              } else if (Array.isArray(stats.gruas_top_motivos) && stats.gruas_top_motivos.length > 0) {
+                pieLabels = stats.gruas_top_motivos.map(m => m.motivo);
+                pieData = stats.gruas_top_motivos.map(m => Number(m.cantidad) || 0);
+                pieColors = ['#10b981', '#06b6d4', '#3b82f6', '#8b5cf6', '#f59e0b'];
+              } else if (Array.isArray(stats.ambulancias_top_incidentes) && stats.ambulancias_top_incidentes.length > 0) {
+                pieLabels = stats.ambulancias_top_incidentes.map(i => i.tipo);
+                pieData = stats.ambulancias_top_incidentes.map(i => Number(i.cantidad) || 0);
+                pieColors = ['#ef4444', '#f59e0b', '#3b82f6', '#10b981', '#8b5cf6'];
+              } else if (Array.isArray(stats.gruas_top_vehiculos) && stats.gruas_top_vehiculos.length > 0) {
+                pieLabels = stats.gruas_top_vehiculos.map(v => v.tipo);
+                pieData = stats.gruas_top_vehiculos.map(v => Number(v.cantidad) || 0);
+                pieColors = ['#3b82f6', '#10b981', '#06b6d4', '#f59e0b'];
+              }
+
+              chartInstances[pieKey] = new Chart(pieCanvas, {
+                type: 'doughnut',
+                data: {
+                  labels: pieLabels,
+                  datasets: [{
+                    data: pieData,
+                    backgroundColor: pieColors,
+                    borderWidth: 2,
+                    borderColor: dark ? '#1e293b' : '#ffffff',
+                    hoverOffset: 4
+                  }]
+                },
+                options: {
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  cutout: '68%',
+                  plugins: {
+                    legend: {
+                      position: 'bottom',
+                      labels: {
+                        color: textColor,
+                        boxWidth: 12,
+                        padding: 10,
+                        font: { size: 10 }
+                      }
+                    },
+                    tooltip: {
+                      padding: 8,
+                      cornerRadius: 8,
+                      callbacks: {
+                        label: function(ctx) {
+                          const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                          const val = ctx.parsed;
+                          const pct = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+                          return ' ' + ctx.label + ': ' + val + ' (' + pct + '%)';
+                        }
+                      }
+                    }
+                  }
+                }
+              });
+            }
+          }
+        }
+
+        function renderizarTodosLosGraficos() {
+          if (!mensajesActuales.value || !Array.isArray(mensajesActuales.value)) return;
+          nextTick(() => {
+            mensajesActuales.value.forEach((msg, idx) => {
+              if (msg && msg.role === 'assistant' && msg.estadisticas) {
+                renderizarGraficosParaMensaje(msg, idx);
+              }
+            });
+          });
+        }
+
+        // --- TEMA (DARK / LIGHT) ---
+        function toggleTheme() {
+          setTheme(isDark.value ? 'light' : 'dark');
+        }
+
+        function setTheme(theme) {
+          if (theme === 'dark') {
+            document.documentElement.classList.add('dark');
+            isDark.value = true;
+            localStorage.setItem('vialbot_theme', 'dark');
+            document.querySelector('meta[name="color-scheme"]').setAttribute('content', 'dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+            isDark.value = false;
+            localStorage.setItem('vialbot_theme', 'light');
+            document.querySelector('meta[name="color-scheme"]').setAttribute('content', 'light');
+          }
+          nextTick(() => {
+            renderizarTodosLosGraficos();
+            lucide.createIcons();
+          });
+        }
+
+        function toggleSidebar() {
+          sidebarOpen.value = !sidebarOpen.value;
+          nextTick(() => lucide.createIcons());
+        }
+
+        // --- CONFIGURACIÃ“N PERSISTENTE ---
+        function cargarConfiguracion() {
+          try {
+            const guardada = localStorage.getItem('vialbot_config_v2');
+            if (guardada) {
+              const parsed = JSON.parse(guardada);
+              // Si el usuario guardÃ³ un endpoint relativo pero estÃ¡ en file://, corregirlo a absoluto
+              if ((window.location.protocol === 'file:' || !window.location.host) && parsed.endpoint && !parsed.endpoint.startsWith('http')) {
+                parsed.endpoint = 'http://127.0.0.1:8000/api/v1/ai/analizar-jornada';
+              }
+              config.value = Object.assign(config.value, parsed);
+            }
+          } catch (_) {}
+        }
+
+        function guardarConfiguracion() {
+          try {
+            localStorage.setItem('vialbot_config_v2', JSON.stringify(config.value));
+            mostrarToast("ConfiguraciÃ³n guardada");
+          } catch (_) {}
+        }
+
+        function exportarHistorial() {
+          try {
+            const jsonStr = JSON.stringify(conversaciones.value, null, 2);
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `vialbot_historial_${new Date().toISOString().slice(0, 10)}.json`;
+            a.click();
+            mostrarToast("Historial exportado");
+          } catch (_) {}
+        }
+
+        // --- HEALTH CHECK PING ---
+        async function verificarSaludServicio() {
+          const startTime = performance.now();
+          try {
+            const baseApi = (window.location.protocol === 'file:' || !window.location.host)
+              ? 'http://127.0.0.1:8000'
+              : '';
+            const res = await fetch(baseApi + '/health');
+            const latency = Math.round(performance.now() - startTime);
+            dbLatency.value = latency;
+
+            if (res.ok) {
+              const data = await res.json();
+              dbStatus.value = data.status || 'healthy';
+              dbStatusText.value = data.database_server || 'VIALPROD';
+              dbStatusDetail.value = `SQL Server ${data.database_server || 'VIALPROD'} En lÃ­nea (${latency}ms)`;
+            } else {
+              dbStatus.value = 'degraded';
+              dbStatusText.value = 'Degradado';
+            }
+          } catch (_) {
+            dbStatus.value = 'offline';
+            dbStatusText.value = 'Sin ConexiÃ³n';
+            dbStatusDetail.value = 'No se puede contactar a la API';
+          }
+        }
+
+        // --- SHORTCUTS GLOBALES ---
+        window.addEventListener('keydown', (e) => {
+          // Ctrl + K o Cmd + K -> Command Palette
+          if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+            e.preventDefault();
+            abrirCommandPalette();
+          }
+          // Ctrl + O -> Nuevo Chat
+          if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') {
+            e.preventDefault();
+            crearNuevaConversacion();
+          }
+          // Ctrl + [ -> Toggle Sidebar
+          if ((e.ctrlKey || e.metaKey) && e.key === '[') {
+            e.preventDefault();
+            toggleSidebar();
+          }
+          // Escape -> Cerrar modales
+          if (e.key === 'Escape') {
+            mostrarCommandPalette.value = false;
+            mostrarConfiguracion.value = false;
+            mostrarTemplatesMenu.value = false;
+            mostrarModelInfo.value = false;
+          }
+        });
+
+        window.addEventListener('resize', () => {
+          isMobile.value = window.innerWidth < 1024;
+        });
+
+        onMounted(() => {
+          cargarConfiguracion();
+          cargarConversaciones();
+          verificarSaludServicio();
+          setInterval(verificarSaludServicio, 30000);
+
+          nextTick(() => {
+            lucide.createIcons();
+            scrollToBottom(false);
+            renderizarTodosLosGraficos();
+          });
+        });
+
+        return {
+          isDark,
+          sidebarOpen,
+          isMobile,
+          promptInput,
+          cargando,
+          textoEstadoCarga,
+          mostrarBotonScrollAbajo,
+          mostrarModelInfo,
+          mostrarTemplatesMenu,
+          mostrarCommandPalette,
+          mostrarConfiguracion,
+          filtroBusqueda,
+          filtroComando,
+          chatContainer,
+          promptTextarea,
+          commandInput,
+          grabandoVoz,
+          indiceVozActiva,
+          dbStatus,
+          dbStatusText,
+          dbStatusDetail,
+          dbLatency,
+          config,
+          toast,
+          chatActualId,
+          conversacionActual,
+          mensajesActuales,
+          conversacionesFiltradas,
+          conversacionesRecientesPalette,
+          toggleSidebar,
+          toggleTheme,
+          setTheme,
+          crearNuevaConversacion,
+          seleccionarConversacion,
+          renombrarConversacion,
+          eliminarConversacion,
+          confirmarLimpiarTodo,
+          enviarMensaje,
+          cancelarGeneracion,
+          descargarBlob,
+          descargarExcel,
+          exportarMensajePDF,
+          enviarPromptSugerido,
+          usarPlantilla,
+          ejecutarPlantillaRapida,
+          editarMensajeUsuario,
+          regenerarRespuesta,
+          darFeedback,
+          toggleReconocimientoVoz,
+          toggleVozTexto,
+          renderMarkdown,
+          copiarAlPortapapeles,
+          handleKeyDown,
+          autoResize,
+          scrollToBottom,
+          handleScroll,
+          abrirCommandPalette,
+          guardarConfiguracion,
+          exportarHistorial,
+          formatearNumero,
+          tieneDatosGraficables,
+          tieneDatosSectores,
+          tieneDatosDistribucion,
+          getTituloDistribucion,
+          renderizarTodosLosGraficos,
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

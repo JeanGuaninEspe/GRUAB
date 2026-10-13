@@ -1,0 +1,4879 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Microservicio de Gestión y Analítica de Rescate Vial",
+    "description": "Microservicio RESTful de alto rendimiento para la gestión de operaciones viales (Ambulancias, Grúas y Patrullaje), analítica de respuesta/puntos negros y generación de reportes ejecutivos ministeriales MTOP en formato Excel y PDF con imagen corporativa COSAD 25.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/catalogos/personal": {
+      "get": {
+        "tags": [
+          "Catálogos"
+        ],
+        "summary": "Listar personal de la concesión",
+        "description": "Obtiene el listado de personal con filtros opcionales por rol y estado activo.",
+        "operationId": "listar_personal_api_v1_catalogos_personal_get",
+        "parameters": [
+          {
+            "name": "rol",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/RolPersonalEnum"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filtrar por rol operativo del personal",
+              "title": "Rol"
+            },
+            "description": "Filtrar por rol operativo del personal"
+          },
+          {
+            "name": "activo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filtrar por estado activo/inactivo",
+              "title": "Activo"
+            },
+            "description": "Filtrar por estado activo/inactivo"
+          },
+          {
+            "name": "skip",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Número de registros a omitir para paginación",
+              "default": 0,
+              "title": "Skip"
+            },
+            "description": "Número de registros a omitir para paginación"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "Cantidad máxima de registros a retornar",
+              "default": 100,
+              "title": "Limit"
+            },
+            "description": "Cantidad máxima de registros a retornar"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PersonalRead"
+                  },
+                  "title": "Response Listar Personal Api V1 Catalogos Personal Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/catalogos/vehiculos": {
+      "get": {
+        "tags": [
+          "Catálogos"
+        ],
+        "summary": "Listar flota de vehículos de la concesión",
+        "description": "Obtiene el inventario de flota vehicular con filtros por tipo y disponibilidad.",
+        "operationId": "listar_vehiculos_api_v1_catalogos_vehiculos_get",
+        "parameters": [
+          {
+            "name": "tipo_flota",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/TipoFlotaEnum"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filtrar por tipo de flota (AMBULANCIA, GRUA, PATRULLA)",
+              "title": "Tipo Flota"
+            },
+            "description": "Filtrar por tipo de flota (AMBULANCIA, GRUA, PATRULLA)"
+          },
+          {
+            "name": "activo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filtrar por estado activo/inactivo",
+              "title": "Activo"
+            },
+            "description": "Filtrar por estado activo/inactivo"
+          },
+          {
+            "name": "skip",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Número de registros a omitir para paginación",
+              "default": 0,
+              "title": "Skip"
+            },
+            "description": "Número de registros a omitir para paginación"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "Cantidad máxima de registros a retornar",
+              "default": 100,
+              "title": "Limit"
+            },
+            "description": "Cantidad máxima de registros a retornar"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VehiculoRead"
+                  },
+                  "title": "Response Listar Vehiculos Api V1 Catalogos Vehiculos Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/operaciones/ambulancias": {
+      "post": {
+        "tags": [
+          "Operaciones"
+        ],
+        "summary": "Registrar asistencia médica de ambulancia",
+        "description": "Inserta un nuevo registro de atención prehospitalaria validando cronología y odometría.",
+        "operationId": "registrar_ambulancia_api_v1_operaciones_ambulancias_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AmbulanciaCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AmbulanciaRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Operaciones"
+        ],
+        "summary": "Listar asistencias de ambulancias",
+        "description": "Consulta el historial de atenciones médicas registradas con filtros por fecha y turno.",
+        "operationId": "listar_ambulancias_api_v1_operaciones_ambulancias_get",
+        "parameters": [
+          {
+            "name": "fecha_inicio",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Fecha de inicio para filtro de llamada (YYYY-MM-DD)",
+              "title": "Fecha Inicio"
+            },
+            "description": "Fecha de inicio para filtro de llamada (YYYY-MM-DD)"
+          },
+          {
+            "name": "fecha_fin",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Fecha de fin para filtro de llamada (YYYY-MM-DD)",
+              "title": "Fecha Fin"
+            },
+            "description": "Fecha de fin para filtro de llamada (YYYY-MM-DD)"
+          },
+          {
+            "name": "turno",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 3,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filtrar por turno operativo (1, 2 o 3)",
+              "title": "Turno"
+            },
+            "description": "Filtrar por turno operativo (1, 2 o 3)"
+          },
+          {
+            "name": "skip",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Paginación: registros a omitir",
+              "default": 0,
+              "title": "Skip"
+            },
+            "description": "Paginación: registros a omitir"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "description": "Paginación: límite de registros",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "Paginación: límite de registros"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AmbulanciaRead"
+                  },
+                  "title": "Response Listar Ambulancias Api V1 Operaciones Ambulancias Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/operaciones/gruas": {
+      "post": {
+        "tags": [
+          "Operaciones"
+        ],
+        "summary": "Registrar asistencia y remolque de grúa",
+        "description": "Inserta una nueva asistencia mecánica o remolque validando odometría y parámetros de traslado.",
+        "operationId": "registrar_grua_api_v1_operaciones_gruas_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GruaCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GruaRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Operaciones"
+        ],
+        "summary": "Listar asistencias de grúas",
+        "description": "Consulta el historial de remolques y auxilios mecánicos registrados.",
+        "operationId": "listar_gruas_api_v1_operaciones_gruas_get",
+        "parameters": [
+          {
+            "name": "fecha_inicio",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Fecha de inicio para filtro (YYYY-MM-DD)",
+              "title": "Fecha Inicio"
+            },
+            "description": "Fecha de inicio para filtro (YYYY-MM-DD)"
+          },
+          {
+            "name": "fecha_fin",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Fecha de fin para filtro (YYYY-MM-DD)",
+              "title": "Fecha Fin"
+            },
+            "description": "Fecha de fin para filtro (YYYY-MM-DD)"
+          },
+          {
+            "name": "turno",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 3,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filtrar por turno (1, 2 o 3)",
+              "title": "Turno"
+            },
+            "description": "Filtrar por turno (1, 2 o 3)"
+          },
+          {
+            "name": "skip",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Paginación: registros a omitir",
+              "default": 0,
+              "title": "Skip"
+            },
+            "description": "Paginación: registros a omitir"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "description": "Paginación: límite de registros",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "Paginación: límite de registros"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GruaRead"
+                  },
+                  "title": "Response Listar Gruas Api V1 Operaciones Gruas Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/operaciones/patrullaje": {
+      "post": {
+        "tags": [
+          "Operaciones"
+        ],
+        "summary": "Registrar bitácora diaria de patrullaje e inspección",
+        "description": "Inserta un recorrido de inspección vial con odometría y control de novedades.",
+        "operationId": "registrar_patrullaje_api_v1_operaciones_patrullaje_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatrullajeCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatrullajeRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Operaciones"
+        ],
+        "summary": "Listar bitácoras de patrullaje vial",
+        "description": "Consulta los recorridos de inspección registrados.",
+        "operationId": "listar_patrullaje_api_v1_operaciones_patrullaje_get",
+        "parameters": [
+          {
+            "name": "fecha_inicio",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Fecha inicio de recorrido (YYYY-MM-DD)",
+              "title": "Fecha Inicio"
+            },
+            "description": "Fecha inicio de recorrido (YYYY-MM-DD)"
+          },
+          {
+            "name": "fecha_fin",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Fecha fin de recorrido (YYYY-MM-DD)",
+              "title": "Fecha Fin"
+            },
+            "description": "Fecha fin de recorrido (YYYY-MM-DD)"
+          },
+          {
+            "name": "skip",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Paginación: registros a omitir",
+              "default": 0,
+              "title": "Skip"
+            },
+            "description": "Paginación: registros a omitir"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "description": "Paginación: límite de registros",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "Paginación: límite de registros"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PatrullajeRead"
+                  },
+                  "title": "Response Listar Patrullaje Api V1 Operaciones Patrullaje Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analitica/tiempos-respuesta": {
+      "get": {
+        "tags": [
+          "Analítica y KPIs"
+        ],
+        "summary": "Consultar KPIs y tiempos de respuesta operativa",
+        "description": "Consume la vista dbo.vw_kpi_tiempos_atencion y entrega promedios calculados de despacho-arribo, tiempo en sitio y ciclo total, junto con el resumen por servicio y detalle de eventos.",
+        "operationId": "obtener_tiempos_respuesta_api_v1_analitica_tiempos_respuesta_get",
+        "parameters": [
+          {
+            "name": "fecha_inicio",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Fecha de inicio para el análisis (YYYY-MM-DD)",
+              "title": "Fecha Inicio"
+            },
+            "description": "Fecha de inicio para el análisis (YYYY-MM-DD)"
+          },
+          {
+            "name": "fecha_fin",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Fecha final para el análisis (YYYY-MM-DD)",
+              "title": "Fecha Fin"
+            },
+            "description": "Fecha final para el análisis (YYYY-MM-DD)"
+          },
+          {
+            "name": "servicio",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filtrar por tipo de servicio (AMBULANCIA, GRUA, PATRULLAJE)",
+              "title": "Servicio"
+            },
+            "description": "Filtrar por tipo de servicio (AMBULANCIA, GRUA, PATRULLAJE)"
+          },
+          {
+            "name": "turno",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 3,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filtrar por turno operativo (1, 2 o 3)",
+              "title": "Turno"
+            },
+            "description": "Filtrar por turno operativo (1, 2 o 3)"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 2000,
+              "minimum": 1,
+              "description": "Límite máximo de registros a analizar",
+              "default": 500,
+              "title": "Limit"
+            },
+            "description": "Límite máximo de registros a analizar"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KPITiemposRespuestaResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analitica/puntos-negros": {
+      "get": {
+        "tags": [
+          "Analítica y KPIs"
+        ],
+        "summary": "Identificar y priorizar puntos negros de accidentabilidad",
+        "description": "Consume la vista dbo.vw_analitica_puntos_negros para mapear tramos viales críticos con alta frecuencia de siniestros.",
+        "operationId": "obtener_puntos_negros_api_v1_analitica_puntos_negros_get",
+        "parameters": [
+          {
+            "name": "severidad",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/SeveridadEnum"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filtrar por severidad (LEVE, GRAVE, FATAL)",
+              "title": "Severidad"
+            },
+            "description": "Filtrar por severidad (LEVE, GRAVE, FATAL)"
+          },
+          {
+            "name": "causa",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filtrar por palabra clave en posible causa",
+              "title": "Causa"
+            },
+            "description": "Filtrar por palabra clave en posible causa"
+          },
+          {
+            "name": "sentido",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/SentidoEnum"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filtrar por sentido de la vía",
+              "title": "Sentido"
+            },
+            "description": "Filtrar por sentido de la vía"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "Límite de tramos críticos a listar",
+              "default": 100,
+              "title": "Limit"
+            },
+            "description": "Límite de tramos críticos a listar"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PuntosNegrosResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analitica/tramos-criticos-scoring": {
+      "get": {
+        "tags": [
+          "Analítica y KPIs"
+        ],
+        "summary": "Modelo de Scoring de Peligrosidad Vial y Hotspots por Tramo Kilométrico",
+        "description": "Agrupa espacialmente todas las asistencias y accidentes por intervalos configurables de kilómetros (ej. cada 1km, 2km o 5km) y calcula el Índice Ponderado de Criticidad Vial (ICV), clasificando cada tramo en EXTREMO, ALTO, MEDIO o BAJO riesgo junto a una recomendación táctica preventiva.",
+        "operationId": "obtener_tramos_criticos_scoring_api_v1_analitica_tramos_criticos_scoring_get",
+        "parameters": [
+          {
+            "name": "tamano_tramo_km",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "maximum": 50.0,
+              "minimum": 0.5,
+              "description": "Intervalo en kilómetros para la agrupación espacial (ej. 1.0, 2.0, 5.0)",
+              "default": 5.0,
+              "title": "Tamano Tramo Km"
+            },
+            "description": "Intervalo en kilómetros para la agrupación espacial (ej. 1.0, 2.0, 5.0)"
+          },
+          {
+            "name": "fecha_inicio",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filtrar eventos desde (YYYY-MM-DD)",
+              "title": "Fecha Inicio"
+            },
+            "description": "Filtrar eventos desde (YYYY-MM-DD)"
+          },
+          {
+            "name": "fecha_fin",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filtrar eventos hasta (YYYY-MM-DD)",
+              "title": "Fecha Fin"
+            },
+            "description": "Filtrar eventos hasta (YYYY-MM-DD)"
+          },
+          {
+            "name": "servicio",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filtrar por servicio (AMBULANCIA, GRUA)",
+              "title": "Servicio"
+            },
+            "description": "Filtrar por servicio (AMBULANCIA, GRUA)"
+          },
+          {
+            "name": "top_n",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Cantidad de tramos críticos a retornar en el ranking",
+              "default": 15,
+              "title": "Top N"
+            },
+            "description": "Cantidad de tramos críticos a retornar en el ranking"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TramosScoringResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analitica/patrones-temporales": {
+      "get": {
+        "tags": [
+          "Analítica y KPIs"
+        ],
+        "summary": "Análisis de patrones temporales, horas pico y días de mayor accidentabilidad",
+        "description": "Entrega la distribución horaria (0 a 23h), días de la semana (Lunes a Domingo), franjas horarias y la proporción fin de semana vs entre semana para dimensionar turnos y guardias.",
+        "operationId": "obtener_patrones_temporales_api_v1_analitica_patrones_temporales_get",
+        "parameters": [
+          {
+            "name": "fecha_inicio",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Fecha de inicio (YYYY-MM-DD)",
+              "title": "Fecha Inicio"
+            },
+            "description": "Fecha de inicio (YYYY-MM-DD)"
+          },
+          {
+            "name": "fecha_fin",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Fecha final (YYYY-MM-DD)",
+              "title": "Fecha Fin"
+            },
+            "description": "Fecha final (YYYY-MM-DD)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatronesTemporalesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analitica/recomendaciones-despliegue": {
+      "get": {
+        "tags": [
+          "Analítica y KPIs"
+        ],
+        "summary": "Plan de despliegue estratégico de ambulancias, grúas y patrullas",
+        "description": "Genera recomendaciones priorizadas y fundamentadas estadísticamente sobre dónde ubicar las bases móviles y patrullas preventivas en función de la criticidad y horarios pico.",
+        "operationId": "obtener_recomendaciones_despliegue_api_v1_analitica_recomendaciones_despliegue_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecomendacionesDespliegueResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analitica/dashboard-ejecutivo": {
+      "get": {
+        "tags": [
+          "Analítica y KPIs"
+        ],
+        "summary": "Dashboard analítico consolidado para toma de decisiones ejecutivas",
+        "description": "Visión integral con métricas clave de volumen, tiempos de respuesta, tasa de accidentabilidad, el tramo vial de mayor riesgo actual y la directriz operativa recomendada.",
+        "operationId": "obtener_dashboard_ejecutivo_api_v1_analitica_dashboard_ejecutivo_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardEjecutivoResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reportes-mtop/exportar-excel": {
+      "get": {
+        "tags": [
+          "Reportes MTOP"
+        ],
+        "summary": "Exportar reporte mensual MTOP en formato Excel (.xlsx)",
+        "description": "Consulta las vistas ministeriales (dbo.vw_mtop_ambulancias, dbo.vw_mtop_gruas o dbo.vw_mtop_patrullaje) para el mes y año indicados, generando un archivo Excel en memoria formateado profesionalmente para su descarga directa.",
+        "operationId": "exportar_reporte_excel_api_v1_reportes_mtop_exportar_excel_get",
+        "parameters": [
+          {
+            "name": "servicio",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ServicioReporteEnum",
+              "description": "Tipo de servicio a exportar: ambulancia, grua o patrullaje"
+            },
+            "description": "Tipo de servicio a exportar: ambulancia, grua o patrullaje"
+          },
+          {
+            "name": "mes",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "maximum": 12,
+              "minimum": 1,
+              "description": "Mes del reporte (1 = Enero, 12 = Diciembre)",
+              "title": "Mes"
+            },
+            "description": "Mes del reporte (1 = Enero, 12 = Diciembre)"
+          },
+          {
+            "name": "anio",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "maximum": 2100,
+              "minimum": 2000,
+              "description": "Año del reporte (ej. 2026)",
+              "title": "Anio"
+            },
+            "description": "Año del reporte (ej. 2026)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Archivo Excel descargable con los registros ministeriales formateados.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              },
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reportes-mtop/exportar-pdf": {
+      "get": {
+        "tags": [
+          "Reportes MTOP"
+        ],
+        "summary": "Exportar reporte mensual MTOP en formato PDF con Logo Oficial de COSAD 25",
+        "description": "Genera un documento PDF ministerial en formato apaisado (Landscape) con la imagen oficial de COSAD 25, tablas estilizadas y foliado de páginas oficial para archivo o auditoría.",
+        "operationId": "exportar_reporte_pdf_api_v1_reportes_mtop_exportar_pdf_get",
+        "parameters": [
+          {
+            "name": "servicio",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ServicioReporteEnum",
+              "description": "Tipo de servicio a exportar: ambulancia, grua o patrullaje"
+            },
+            "description": "Tipo de servicio a exportar: ambulancia, grua o patrullaje"
+          },
+          {
+            "name": "mes",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "maximum": 12,
+              "minimum": 1,
+              "description": "Mes del reporte (1 = Enero, 12 = Diciembre)",
+              "title": "Mes"
+            },
+            "description": "Mes del reporte (1 = Enero, 12 = Diciembre)"
+          },
+          {
+            "name": "anio",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "maximum": 2100,
+              "minimum": 2000,
+              "description": "Año del reporte (ej. 2026)",
+              "title": "Anio"
+            },
+            "description": "Año del reporte (ej. 2026)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Documento PDF oficial descargable.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              },
+              "application/pdf": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai/chat": {
+      "get": {
+        "tags": [
+          "Agente IA y Chatbot"
+        ],
+        "summary": "Interfaz Web del Chatbot AnalÃ­tico (ChatGPT / Gemini UI)",
+        "description": "Entrega la pÃ¡gina web interactiva con panel de conversaciÃ³n, historial local, markdown enriquecido y modo oscuro.",
+        "operationId": "chat_ui_api_v1_ai_chat_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai/analizar-jornada-stream": {
+      "post": {
+        "tags": [
+          "Agente IA y Chatbot"
+        ],
+        "summary": "Agente de IA con Streaming SSE",
+        "description": "Transmite tokens en tiempo real mediante Server-Sent Events (SSE).",
+        "operationId": "analizar_jornada_stream_api_v1_ai_analizar_jornada_stream_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AIRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai/analizar-jornada": {
+      "post": {
+        "tags": [
+          "Agente IA y Chatbot"
+        ],
+        "summary": "Agente de IA (Reportes y ExportaciÃ³n a PDF / Excel)",
+        "description": "Haz una consulta natural. Si pides un reporte en PDF o Excel, generarÃ¡ y descargarÃ¡ automÃ¡ticamente el documento oficial.",
+        "operationId": "analizar_jornada_api_v1_ai_analizar_jornada_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AIRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai/exportar-pdf": {
+      "post": {
+        "tags": [
+          "Agente IA y Chatbot"
+        ],
+        "summary": "Exportar anÃ¡lisis actual a PDF",
+        "description": "Genera y descarga un informe oficial en PDF a partir del texto y estadÃ­sticas.",
+        "operationId": "exportar_pdf_directo_api_v1_ai_exportar_pdf_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportarPDFDirectoRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai/models": {
+      "get": {
+        "tags": [
+          "Agente IA y Chatbot"
+        ],
+        "summary": "Listado de Modelos (OpenAI Compatible)",
+        "description": "Permite que Open WebUI descubra el modelo conectado a SQL Server.",
+        "operationId": "list_models_api_v1_ai_models_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai/chat/completions": {
+      "post": {
+        "tags": [
+          "Agente IA y Chatbot"
+        ],
+        "summary": "Chat Completions (OpenAI Compatible con soporte de Streaming)",
+        "description": "Recibe mensajes de Open WebUI, consulta SQL Server y responde con streaming en tiempo real.",
+        "operationId": "chat_completions_api_v1_ai_chat_completions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenAIChatCompletionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/catalogos/choferes-grua": {
+      "get": {
+        "tags": [
+          "Catálogos"
+        ],
+        "summary": "Listar choferes y operadores de grúa activos",
+        "description": "Retorna el personal registrado en cat_personal con rol 'CHOFER_GRUA' y estado activo.",
+        "operationId": "get_choferes_grua_api_v1_catalogos_choferes_grua_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PersonalRead"
+                  },
+                  "type": "array",
+                  "title": "Response Get Choferes Grua Api V1 Catalogos Choferes Grua Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/catalogos/supervisores": {
+      "get": {
+        "tags": [
+          "Catálogos"
+        ],
+        "summary": "Listar supervisores de operaciones activos",
+        "description": "Retorna el personal registrado en cat_personal con rol 'SUPERVISOR' y estado activo.",
+        "operationId": "get_supervisores_api_v1_catalogos_supervisores_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PersonalRead"
+                  },
+                  "type": "array",
+                  "title": "Response Get Supervisores Api V1 Catalogos Supervisores Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/catalogos/vehiculos-grua": {
+      "get": {
+        "tags": [
+          "Catálogos"
+        ],
+        "summary": "Listar unidades vehiculares de grúa activas",
+        "description": "Retorna las unidades vehiculares de la concesión con tipo_flota 'GRUA' y estado activo.",
+        "operationId": "get_vehiculos_grua_api_v1_catalogos_vehiculos_grua_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/VehiculoRead"
+                  },
+                  "type": "array",
+                  "title": "Response Get Vehiculos Grua Api V1 Catalogos Vehiculos Grua Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/asistencias-grua/": {
+      "post": {
+        "tags": [
+          "Asistencias de Grúas"
+        ],
+        "summary": "Registrar una nueva asistencia de grúa",
+        "description": "Registra un nuevo servicio de grúa en dbo.asistencias_grua. Valida cronología estricta (ts_llamada <= ts_arribo <= ts_termino <= ts_retorno), odometría (odometro_llegada_km >= odometro_salida_km) y unicidad de código_formulario. km_recorridos es calculado y persistido en base de datos.",
+        "operationId": "crear_asistencia_grua_api_v1_asistencias_grua__post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GruaCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GruaRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Asistencias de Grúas"
+        ],
+        "summary": "Listar asistencias de grúa con filtros y paginación",
+        "description": "Consulta asistencias de grúa con filtros por fecha de llamada, sector, tipo de grúa, severidad y búsqueda rápida.",
+        "operationId": "listar_asistencias_grua_api_v1_asistencias_grua__get",
+        "parameters": [
+          {
+            "name": "fecha_inicio",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Fecha/hora inicial de llamada (ISO format)",
+              "title": "Fecha Inicio"
+            },
+            "description": "Fecha/hora inicial de llamada (ISO format)"
+          },
+          {
+            "name": "fecha_fin",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Fecha/hora final de llamada (ISO format)",
+              "title": "Fecha Fin"
+            },
+            "description": "Fecha/hora final de llamada (ISO format)"
+          },
+          {
+            "name": "sector_referencia",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filtrar por sector de referencia (búsqueda parcial)",
+              "title": "Sector Referencia"
+            },
+            "description": "Filtrar por sector de referencia (búsqueda parcial)"
+          },
+          {
+            "name": "tipo_grua",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filtrar por tipo de grúa (PEQUEÑA, GRANDE, PLATAFORMA)",
+              "title": "Tipo Grua"
+            },
+            "description": "Filtrar por tipo de grúa (PEQUEÑA, GRANDE, PLATAFORMA)"
+          },
+          {
+            "name": "severidad",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filtrar por severidad (LEVE, GRAVE, FATAL)",
+              "title": "Severidad"
+            },
+            "description": "Filtrar por severidad (LEVE, GRAVE, FATAL)"
+          },
+          {
+            "name": "placa_asistida",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filtrar por placa asistida (búsqueda parcial)",
+              "title": "Placa Asistida"
+            },
+            "description": "Filtrar por placa asistida (búsqueda parcial)"
+          },
+          {
+            "name": "codigo_formulario",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filtrar por código de formulario",
+              "title": "Codigo Formulario"
+            },
+            "description": "Filtrar por código de formulario"
+          },
+          {
+            "name": "skip",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Registros a omitir",
+              "default": 0,
+              "title": "Skip"
+            },
+            "description": "Registros a omitir"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "Cantidad máxima de registros por página",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "Cantidad máxima de registros por página"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsistenciaGruaPaginadaResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reportes-gruas/ejecutivo-ia": {
+      "post": {
+        "tags": [
+          "Reportes y Analítica con IA"
+        ],
+        "summary": "Generar informe ejecutivo de grúas asistido por IA",
+        "description": "Ejecuta agregaciones deterministas en SQL y Pandas sobre dbo.asistencias_grua, calculando desglose mensual, sectores críticos, matriz cruzada (motivo vs grúa) y tiempos de respuesta/despeje. Inyecta los datos matemáticos cerrados en Qwen 2.5 para una redacción analítica de alto nivel con foco en el Sector #1 y la Tipología #1.",
+        "operationId": "generar_reporte_ejecutivo_ia_api_v1_reportes_gruas_ejecutivo_ia_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReporteEjecutivoIARequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReporteEjecutivoIAResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/": {
+      "get": {
+        "tags": [
+          "Monitoreo"
+        ],
+        "summary": "Información y bienvenida al microservicio",
+        "operationId": "root__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Root  Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "Monitoreo"
+        ],
+        "summary": "Estado de salud del microservicio y base de datos",
+        "description": "Comprueba la operatividad de la API y ejecuta un ping de verificación a SQL Server.",
+        "operationId": "health_check_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Health Check Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AIRequest": {
+        "properties": {
+          "pregunta": {
+            "type": "string",
+            "title": "Pregunta"
+          },
+          "historial": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Historial"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id"
+          },
+          "stream": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stream",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "pregunta"
+        ],
+        "title": "AIRequest"
+      },
+      "AmbulanciaCreate": {
+        "properties": {
+          "codigo_formulario": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Codigo Formulario",
+            "description": "Código único de la hoja de atención médica"
+          },
+          "id_supervisor": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Id Supervisor",
+            "description": "ID del supervisor a cargo"
+          },
+          "id_paramedico": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Id Paramedico",
+            "description": "ID del paramédico actuante"
+          },
+          "id_chofer": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Id Chofer",
+            "description": "ID del chofer de la ambulancia"
+          },
+          "id_vehiculo": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Id Vehiculo",
+            "description": "ID del vehículo ambulancia"
+          },
+          "turno": {
+            "$ref": "#/components/schemas/TurnoEnum",
+            "description": "Turno operativo (1, 2 o 3)"
+          },
+          "ts_llamada": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Ts Llamada",
+            "description": "Fecha y hora de recepción de la llamada"
+          },
+          "ts_arribo": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Ts Arribo",
+            "description": "Fecha y hora de arribo al lugar"
+          },
+          "ts_termino": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Ts Termino",
+            "description": "Fecha y hora de término de atención"
+          },
+          "ts_retorno": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Ts Retorno",
+            "description": "Fecha y hora de retorno a base"
+          },
+          "sector_referencia": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Sector Referencia",
+            "description": "Sector o punto de referencia"
+          },
+          "abscisa_km": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,4}|(?=[\\d.]{1,8}0*$)\\d{0,4}\\.\\d{0,3}0*$)"
+              }
+            ],
+            "title": "Abscisa Km",
+            "description": "Kilómetro de la vía"
+          },
+          "sentido": {
+            "$ref": "#/components/schemas/SentidoEnum",
+            "description": "Sentido de la calzada"
+          },
+          "nombre_paciente": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nombre Paciente"
+          },
+          "rango_edad": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rango Edad"
+          },
+          "motivo_atencion": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Motivo Atencion"
+          },
+          "tipo_incidente": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipo Incidente"
+          },
+          "tipo_accidente": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipo Accidente"
+          },
+          "severidad": {
+            "$ref": "#/components/schemas/SeveridadEnum",
+            "description": "Severidad (LEVE, GRAVE, FATAL)"
+          },
+          "destino_paciente": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Destino Paciente"
+          },
+          "usuarios_atendidos": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Usuarios Atendidos",
+            "default": 1
+          },
+          "servicio_comunidad": {
+            "type": "boolean",
+            "title": "Servicio Comunidad",
+            "default": false
+          },
+          "odometro_salida_km": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,7}|(?=[\\d.]{1,10}0*$)\\d{0,7}\\.\\d{0,2}0*$)"
+              }
+            ],
+            "title": "Odometro Salida Km"
+          },
+          "odometro_llegada_km": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,7}|(?=[\\d.]{1,10}0*$)\\d{0,7}\\.\\d{0,2}0*$)"
+              }
+            ],
+            "title": "Odometro Llegada Km"
+          },
+          "reportado_mtop": {
+            "type": "boolean",
+            "title": "Reportado Mtop",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "codigo_formulario",
+          "id_supervisor",
+          "id_paramedico",
+          "id_chofer",
+          "id_vehiculo",
+          "turno",
+          "ts_llamada",
+          "ts_arribo",
+          "ts_termino",
+          "ts_retorno",
+          "sector_referencia",
+          "abscisa_km",
+          "sentido",
+          "motivo_atencion",
+          "severidad",
+          "odometro_salida_km",
+          "odometro_llegada_km"
+        ],
+        "title": "AmbulanciaCreate"
+      },
+      "AmbulanciaRead": {
+        "properties": {
+          "codigo_formulario": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Codigo Formulario",
+            "description": "Código único de la hoja de atención médica"
+          },
+          "id_supervisor": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Supervisor",
+            "description": "ID del supervisor a cargo"
+          },
+          "id_paramedico": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Paramedico",
+            "description": "ID del paramédico actuante"
+          },
+          "id_chofer": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Chofer",
+            "description": "ID del chofer de la ambulancia"
+          },
+          "id_vehiculo": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Vehiculo",
+            "description": "ID del vehículo ambulancia"
+          },
+          "turno": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turno",
+            "description": "Turno operativo (1, 2 o 3)"
+          },
+          "ts_llamada": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ts Llamada",
+            "description": "Fecha y hora de recepción de la llamada de emergencia"
+          },
+          "ts_arribo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ts Arribo",
+            "description": "Fecha y hora de arribo al lugar del incidente"
+          },
+          "ts_termino": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ts Termino",
+            "description": "Fecha y hora de culminación de la atención o traslado"
+          },
+          "ts_retorno": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ts Retorno",
+            "description": "Fecha y hora de retorno a la base operativa"
+          },
+          "sector_referencia": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sector Referencia",
+            "description": "Sector o punto de referencia vial"
+          },
+          "abscisa_km": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,4}|(?=[\\d.]{1,8}0*$)\\d{0,4}\\.\\d{0,3}0*$)"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abscisa Km",
+            "description": "Kilómetro de la vía (abscisa)"
+          },
+          "sentido": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentido",
+            "description": "Sentido de la calzada"
+          },
+          "nombre_paciente": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nombre Paciente",
+            "description": "Nombre del paciente asistido"
+          },
+          "rango_edad": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rango Edad",
+            "description": "Rango de edad del paciente (ej: '18-35 años', 'Adulto mayor')"
+          },
+          "motivo_atencion": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motivo Atencion",
+            "description": "Motivo médico o circunstancia de la atención"
+          },
+          "tipo_incidente": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipo Incidente",
+            "description": "Clasificación del incidente vial"
+          },
+          "tipo_accidente": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipo Accidente",
+            "description": "Tipo de accidente (colisión, volcamiento, etc.)"
+          },
+          "severidad": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severidad",
+            "description": "Severidad del estado del paciente o evento"
+          },
+          "destino_paciente": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Destino Paciente",
+            "description": "Hospital o casa de salud de destino"
+          },
+          "usuarios_atendidos": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usuarios Atendidos",
+            "description": "Número de personas asistidas",
+            "default": 1
+          },
+          "servicio_comunidad": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Servicio Comunidad",
+            "description": "Indica si fue un servicio fuera de la franja o apoyo comunitario",
+            "default": false
+          },
+          "odometro_salida_km": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,7}|(?=[\\d.]{1,10}0*$)\\d{0,7}\\.\\d{0,2}0*$)"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Odometro Salida Km",
+            "description": "Lectura del odómetro al salir de la base"
+          },
+          "odometro_llegada_km": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,7}|(?=[\\d.]{1,10}0*$)\\d{0,7}\\.\\d{0,2}0*$)"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Odometro Llegada Km",
+            "description": "Lectura del odómetro al retornar a la base"
+          },
+          "reportado_mtop": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reportado Mtop",
+            "description": "Bandera de sincronización o reporte ministerial",
+            "default": false
+          },
+          "id_asistencia": {
+            "type": "integer",
+            "title": "Id Asistencia",
+            "description": "Identificador único del registro de asistencia"
+          },
+          "km_recorridos": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Km Recorridos",
+            "description": "Kilómetros calculados recorridos"
+          }
+        },
+        "type": "object",
+        "required": [
+          "codigo_formulario",
+          "id_asistencia"
+        ],
+        "title": "AmbulanciaRead"
+      },
+      "AsistenciaGruaPaginadaResponse": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "Total de registros encontrados con los filtros aplicados"
+          },
+          "skip": {
+            "type": "integer",
+            "title": "Skip",
+            "description": "Desplazamiento aplicado"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit",
+            "description": "Límite por página"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GruaRead"
+            },
+            "type": "array",
+            "title": "Items",
+            "description": "Listado de asistencias de grúa"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "skip",
+          "limit",
+          "items"
+        ],
+        "title": "AsistenciaGruaPaginadaResponse"
+      },
+      "DashboardEjecutivoResponse": {
+        "properties": {
+          "total_asistencias_historicas": {
+            "type": "integer",
+            "title": "Total Asistencias Historicas"
+          },
+          "total_ambulancias": {
+            "type": "integer",
+            "title": "Total Ambulancias"
+          },
+          "total_gruas": {
+            "type": "integer",
+            "title": "Total Gruas"
+          },
+          "total_patrullajes": {
+            "type": "integer",
+            "title": "Total Patrullajes"
+          },
+          "tasa_accidentabilidad_porcentaje": {
+            "type": "number",
+            "title": "Tasa Accidentabilidad Porcentaje"
+          },
+          "tasa_asistencia_mecanica_porcentaje": {
+            "type": "number",
+            "title": "Tasa Asistencia Mecanica Porcentaje"
+          },
+          "km_totales_atendidos": {
+            "type": "number",
+            "title": "Km Totales Atendidos"
+          },
+          "tiempo_promedio_llegada_min": {
+            "type": "number",
+            "title": "Tiempo Promedio Llegada Min"
+          },
+          "tiempo_promedio_sitio_min": {
+            "type": "number",
+            "title": "Tiempo Promedio Sitio Min"
+          },
+          "tiempo_promedio_ciclo_min": {
+            "type": "number",
+            "title": "Tiempo Promedio Ciclo Min"
+          },
+          "tramo_mas_critico": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TramoScoringItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "franja_horaria_mas_critica": {
+            "type": "string",
+            "title": "Franja Horaria Mas Critica"
+          },
+          "dia_mas_critico": {
+            "type": "string",
+            "title": "Dia Mas Critico"
+          },
+          "recomendacion_ejecutiva": {
+            "type": "string",
+            "title": "Recomendacion Ejecutiva"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_asistencias_historicas",
+          "total_ambulancias",
+          "total_gruas",
+          "total_patrullajes",
+          "tasa_accidentabilidad_porcentaje",
+          "tasa_asistencia_mecanica_porcentaje",
+          "km_totales_atendidos",
+          "tiempo_promedio_llegada_min",
+          "tiempo_promedio_sitio_min",
+          "tiempo_promedio_ciclo_min",
+          "tramo_mas_critico",
+          "franja_horaria_mas_critica",
+          "dia_mas_critico",
+          "recomendacion_ejecutiva"
+        ],
+        "title": "DashboardEjecutivoResponse"
+      },
+      "DesgloseCruzadoItem": {
+        "properties": {
+          "motivo": {
+            "type": "string",
+            "title": "Motivo"
+          },
+          "pequena": {
+            "type": "integer",
+            "title": "Pequena"
+          },
+          "grande": {
+            "type": "integer",
+            "title": "Grande"
+          },
+          "plataforma": {
+            "type": "integer",
+            "title": "Plataforma"
+          },
+          "otros": {
+            "type": "integer",
+            "title": "Otros"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "porcentaje": {
+            "type": "string",
+            "title": "Porcentaje"
+          },
+          "porcentaje_num": {
+            "type": "number",
+            "title": "Porcentaje Num"
+          }
+        },
+        "type": "object",
+        "required": [
+          "motivo",
+          "pequena",
+          "grande",
+          "plataforma",
+          "otros",
+          "total",
+          "porcentaje",
+          "porcentaje_num"
+        ],
+        "title": "DesgloseCruzadoItem"
+      },
+      "DesgloseMensualItem": {
+        "properties": {
+          "mes": {
+            "type": "string",
+            "title": "Mes"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "porcentaje": {
+            "type": "string",
+            "title": "Porcentaje"
+          },
+          "porcentaje_num": {
+            "type": "number",
+            "title": "Porcentaje Num"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mes",
+          "total",
+          "porcentaje",
+          "porcentaje_num"
+        ],
+        "title": "DesgloseMensualItem"
+      },
+      "DesgloseSectorItem": {
+        "properties": {
+          "sector": {
+            "type": "string",
+            "title": "Sector"
+          },
+          "cantidad": {
+            "type": "integer",
+            "title": "Cantidad"
+          },
+          "porcentaje": {
+            "type": "string",
+            "title": "Porcentaje"
+          },
+          "porcentaje_num": {
+            "type": "number",
+            "title": "Porcentaje Num"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sector",
+          "cantidad",
+          "porcentaje",
+          "porcentaje_num"
+        ],
+        "title": "DesgloseSectorItem"
+      },
+      "ExportarPDFDirectoRequest": {
+        "properties": {
+          "respuesta_ia": {
+            "type": "string",
+            "title": "Respuesta Ia"
+          },
+          "estadisticas": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estadisticas"
+          }
+        },
+        "type": "object",
+        "required": [
+          "respuesta_ia"
+        ],
+        "title": "ExportarPDFDirectoRequest"
+      },
+      "GruaCreate": {
+        "properties": {
+          "codigo_formulario": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Codigo Formulario",
+            "description": "Código único de la orden de grúa"
+          },
+          "id_supervisor": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Id Supervisor",
+            "description": "ID del supervisor a cargo"
+          },
+          "id_chofer": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Id Chofer",
+            "description": "ID del operador de grúa"
+          },
+          "id_vehiculo": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Vehiculo",
+            "description": "ID de la unidad de grúa (opcional si es externa)"
+          },
+          "turno": {
+            "$ref": "#/components/schemas/TurnoEnum",
+            "description": "Turno operativo (1, 2 o 3)"
+          },
+          "tipo_grua": {
+            "$ref": "#/components/schemas/TipoGruaEnum",
+            "description": "Tipo de grúa utilizada"
+          },
+          "ts_llamada": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Ts Llamada",
+            "description": "Fecha y hora de la llamada de solicitud"
+          },
+          "ts_arribo": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Ts Arribo",
+            "description": "Fecha y hora de llegada al punto"
+          },
+          "ts_termino": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Ts Termino",
+            "description": "Fecha y hora de término de maniobra"
+          },
+          "ts_retorno": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Ts Retorno",
+            "description": "Fecha y hora de retorno a base"
+          },
+          "sector_referencia": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Sector Referencia",
+            "description": "Sector o referencia"
+          },
+          "abscisa_km": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,4}|(?=[\\d.]{1,8}0*$)\\d{0,4}\\.\\d{0,3}0*$)"
+              }
+            ],
+            "title": "Abscisa Km",
+            "description": "Kilómetro del evento"
+          },
+          "sentido": {
+            "$ref": "#/components/schemas/SentidoEnum",
+            "description": "Sentido vial"
+          },
+          "usuario_reporta": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usuario Reporta"
+          },
+          "placa_asistida": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Placa Asistida"
+          },
+          "tipo_vehiculo_asistido": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 150
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipo Vehiculo Asistido"
+          },
+          "usuarios_atendidos": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Usuarios Atendidos",
+            "default": 1
+          },
+          "motivo_atencion": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Motivo Atencion"
+          },
+          "tipo_accidente": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipo Accidente"
+          },
+          "posible_causa": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Posible Causa"
+          },
+          "severidad": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SeveridadEnum"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "km_origen_traslado": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,4}|(?=[\\d.]{1,8}0*$)\\d{0,4}\\.\\d{0,3}0*$)"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Km Origen Traslado"
+          },
+          "km_destino_traslado": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,4}|(?=[\\d.]{1,8}0*$)\\d{0,4}\\.\\d{0,3}0*$)"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Km Destino Traslado"
+          },
+          "odometro_salida_km": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,7}|(?=[\\d.]{1,10}0*$)\\d{0,7}\\.\\d{0,2}0*$)"
+              }
+            ],
+            "title": "Odometro Salida Km"
+          },
+          "odometro_llegada_km": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,7}|(?=[\\d.]{1,10}0*$)\\d{0,7}\\.\\d{0,2}0*$)"
+              }
+            ],
+            "title": "Odometro Llegada Km"
+          },
+          "reportado_mtop": {
+            "type": "boolean",
+            "title": "Reportado Mtop",
+            "default": false
+          },
+          "observaciones": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 5000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observaciones"
+          }
+        },
+        "type": "object",
+        "required": [
+          "codigo_formulario",
+          "id_supervisor",
+          "id_chofer",
+          "turno",
+          "tipo_grua",
+          "ts_llamada",
+          "ts_arribo",
+          "ts_termino",
+          "ts_retorno",
+          "sector_referencia",
+          "abscisa_km",
+          "sentido",
+          "motivo_atencion",
+          "odometro_salida_km",
+          "odometro_llegada_km"
+        ],
+        "title": "GruaCreate"
+      },
+      "GruaRead": {
+        "properties": {
+          "codigo_formulario": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Codigo Formulario",
+            "description": "Código único de la orden de grúa"
+          },
+          "id_supervisor": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Supervisor",
+            "description": "ID del supervisor a cargo"
+          },
+          "id_chofer": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Chofer",
+            "description": "ID del operador de grúa"
+          },
+          "id_vehiculo": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Vehiculo",
+            "description": "ID de la unidad de grúa de la concesión"
+          },
+          "turno": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turno",
+            "description": "Turno operativo (1, 2 o 3)"
+          },
+          "tipo_grua": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipo Grua",
+            "description": "Tipo de grúa utilizada"
+          },
+          "ts_llamada": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ts Llamada",
+            "description": "Fecha y hora de la llamada de solicitud"
+          },
+          "ts_arribo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ts Arribo",
+            "description": "Fecha y hora de llegada al punto"
+          },
+          "ts_termino": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ts Termino",
+            "description": "Fecha y hora de término de maniobra"
+          },
+          "ts_retorno": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ts Retorno",
+            "description": "Fecha y hora de retorno a base"
+          },
+          "sector_referencia": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sector Referencia",
+            "description": "Sector o referencia"
+          },
+          "abscisa_km": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,4}|(?=[\\d.]{1,8}0*$)\\d{0,4}\\.\\d{0,3}0*$)"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abscisa Km",
+            "description": "Kilómetro del evento"
+          },
+          "sentido": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentido",
+            "description": "Sentido vial"
+          },
+          "usuario_reporta": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usuario Reporta"
+          },
+          "placa_asistida": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Placa Asistida"
+          },
+          "tipo_vehiculo_asistido": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 150
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipo Vehiculo Asistido"
+          },
+          "usuarios_atendidos": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usuarios Atendidos",
+            "default": 1
+          },
+          "motivo_atencion": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motivo Atencion"
+          },
+          "tipo_accidente": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipo Accidente"
+          },
+          "posible_causa": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Posible Causa"
+          },
+          "severidad": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severidad"
+          },
+          "km_origen_traslado": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,4}|(?=[\\d.]{1,8}0*$)\\d{0,4}\\.\\d{0,3}0*$)"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Km Origen Traslado"
+          },
+          "km_destino_traslado": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,4}|(?=[\\d.]{1,8}0*$)\\d{0,4}\\.\\d{0,3}0*$)"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Km Destino Traslado"
+          },
+          "odometro_salida_km": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,7}|(?=[\\d.]{1,10}0*$)\\d{0,7}\\.\\d{0,2}0*$)"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Odometro Salida Km"
+          },
+          "odometro_llegada_km": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,7}|(?=[\\d.]{1,10}0*$)\\d{0,7}\\.\\d{0,2}0*$)"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Odometro Llegada Km"
+          },
+          "reportado_mtop": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reportado Mtop",
+            "default": false
+          },
+          "observaciones": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 5000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observaciones"
+          },
+          "id_asistencia_grua": {
+            "type": "integer",
+            "title": "Id Asistencia Grua",
+            "description": "Identificador único de la asistencia de grúa"
+          },
+          "km_recorridos": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Km Recorridos",
+            "description": "Kilómetros calculados recorridos"
+          }
+        },
+        "type": "object",
+        "required": [
+          "codigo_formulario",
+          "id_asistencia_grua"
+        ],
+        "title": "GruaRead"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "KPIServicioResumen": {
+        "properties": {
+          "tipo_servicio": {
+            "type": "string",
+            "title": "Tipo Servicio"
+          },
+          "total_eventos": {
+            "type": "integer",
+            "title": "Total Eventos"
+          },
+          "promedio_despacho_arribo_min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Promedio Despacho Arribo Min"
+          },
+          "promedio_sitio_min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Promedio Sitio Min"
+          },
+          "promedio_ciclo_total_min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Promedio Ciclo Total Min"
+          },
+          "total_km_recorridos": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Km Recorridos"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tipo_servicio",
+          "total_eventos",
+          "promedio_despacho_arribo_min",
+          "promedio_sitio_min",
+          "promedio_ciclo_total_min",
+          "total_km_recorridos"
+        ],
+        "title": "KPIServicioResumen"
+      },
+      "KPITiemposItem": {
+        "properties": {
+          "tipo_servicio": {
+            "type": "string",
+            "title": "Tipo Servicio",
+            "description": "Tipo de servicio (AMBULANCIA, GRUA, PATRULLAJE)"
+          },
+          "codigo_formulario": {
+            "type": "string",
+            "title": "Codigo Formulario",
+            "description": "Código del formulario o bitácora"
+          },
+          "fecha": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha",
+            "description": "Fecha de atención del evento"
+          },
+          "turno": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turno",
+            "description": "Turno operativo"
+          },
+          "abscisa_km": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abscisa Km",
+            "description": "Ubicación kilométrica"
+          },
+          "sentido": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentido",
+            "description": "Sentido vial"
+          },
+          "tiempo_despacho_arribo_min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tiempo Despacho Arribo Min",
+            "description": "Minutos transcurridos desde llamada hasta arribo"
+          },
+          "tiempo_en_sitio_min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tiempo En Sitio Min",
+            "description": "Minutos transcurridos durante la atención en sitio"
+          },
+          "ciclo_total_min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ciclo Total Min",
+            "description": "Minutos totales del ciclo operativo hasta retorno"
+          },
+          "km_recorridos": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Km Recorridos",
+            "description": "Distancia total recorrida en kilómetros"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tipo_servicio",
+          "codigo_formulario"
+        ],
+        "title": "KPITiemposItem"
+      },
+      "KPITiemposRespuestaResponse": {
+        "properties": {
+          "total_registros": {
+            "type": "integer",
+            "title": "Total Registros",
+            "description": "Cantidad total de asistencias en el periodo filtrado"
+          },
+          "promedio_despacho_arribo_min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Promedio Despacho Arribo Min",
+            "description": "Tiempo medio global de despacho a arribo en minutos"
+          },
+          "promedio_sitio_min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Promedio Sitio Min",
+            "description": "Tiempo medio global de permanencia y maniobra en sitio"
+          },
+          "promedio_ciclo_total_min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Promedio Ciclo Total Min",
+            "description": "Tiempo medio global del ciclo operativo completo"
+          },
+          "total_km_recorridos": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Km Recorridos",
+            "description": "Suma total de kilómetros recorridos por la flota"
+          },
+          "resumen_por_servicio": {
+            "items": {
+              "$ref": "#/components/schemas/KPIServicioResumen"
+            },
+            "type": "array",
+            "title": "Resumen Por Servicio",
+            "description": "Consolidado por tipo de servicio"
+          },
+          "detalles": {
+            "items": {
+              "$ref": "#/components/schemas/KPITiemposItem"
+            },
+            "type": "array",
+            "title": "Detalles",
+            "description": "Listado detallado de registros de la vista KPI"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_registros"
+        ],
+        "title": "KPITiemposRespuestaResponse"
+      },
+      "KpisReporte": {
+        "properties": {
+          "total_eventos": {
+            "type": "integer",
+            "title": "Total Eventos"
+          },
+          "tpa_respuesta_min": {
+            "type": "number",
+            "title": "Tpa Respuesta Min"
+          },
+          "tpa_despeje_min": {
+            "type": "number",
+            "title": "Tpa Despeje Min"
+          },
+          "tramo_critico": {
+            "type": "string",
+            "title": "Tramo Critico"
+          },
+          "tramo_critico_cantidad": {
+            "type": "integer",
+            "title": "Tramo Critico Cantidad"
+          },
+          "tramo_critico_pct": {
+            "type": "string",
+            "title": "Tramo Critico Pct"
+          },
+          "porcentaje_mecanicos": {
+            "type": "string",
+            "title": "Porcentaje Mecanicos"
+          },
+          "motivo_principal": {
+            "type": "string",
+            "title": "Motivo Principal"
+          },
+          "motivo_principal_pct": {
+            "type": "string",
+            "title": "Motivo Principal Pct"
+          },
+          "tipo_grua_principal": {
+            "type": "string",
+            "title": "Tipo Grua Principal"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_eventos",
+          "tpa_respuesta_min",
+          "tpa_despeje_min",
+          "tramo_critico",
+          "tramo_critico_cantidad",
+          "tramo_critico_pct",
+          "porcentaje_mecanicos",
+          "motivo_principal",
+          "motivo_principal_pct",
+          "tipo_grua_principal"
+        ],
+        "title": "KpisReporte"
+      },
+      "NivelRiesgoEnum": {
+        "type": "string",
+        "enum": [
+          "EXTREMO",
+          "ALTO",
+          "MEDIO",
+          "BAJO"
+        ],
+        "title": "NivelRiesgoEnum"
+      },
+      "OpenAIChatCompletionRequest": {
+        "properties": {
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model",
+            "default": "vialbot-sql"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/OpenAIMessage"
+            },
+            "type": "array",
+            "title": "Messages"
+          },
+          "user": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User"
+          },
+          "stream": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stream",
+            "default": false
+          },
+          "temperature": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temperature",
+            "default": 0.2
+          }
+        },
+        "type": "object",
+        "required": [
+          "messages"
+        ],
+        "title": "OpenAIChatCompletionRequest"
+      },
+      "OpenAIMessage": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {},
+                "type": "array"
+              }
+            ],
+            "title": "Content"
+          }
+        },
+        "type": "object",
+        "required": [
+          "role",
+          "content"
+        ],
+        "title": "OpenAIMessage"
+      },
+      "PatronDiaItem": {
+        "properties": {
+          "dia_nombre": {
+            "type": "string",
+            "title": "Dia Nombre",
+            "description": "Nombre del día (Lunes, Martes, etc.)"
+          },
+          "total_eventos": {
+            "type": "integer",
+            "title": "Total Eventos"
+          },
+          "total_ambulancias": {
+            "type": "integer",
+            "title": "Total Ambulancias"
+          },
+          "total_gruas": {
+            "type": "integer",
+            "title": "Total Gruas"
+          },
+          "porcentaje": {
+            "type": "number",
+            "title": "Porcentaje"
+          }
+        },
+        "type": "object",
+        "required": [
+          "dia_nombre",
+          "total_eventos",
+          "total_ambulancias",
+          "total_gruas",
+          "porcentaje"
+        ],
+        "title": "PatronDiaItem"
+      },
+      "PatronHoraItem": {
+        "properties": {
+          "hora": {
+            "type": "integer",
+            "maximum": 23.0,
+            "minimum": 0.0,
+            "title": "Hora",
+            "description": "Hora del día (0 a 23)"
+          },
+          "franja_label": {
+            "type": "string",
+            "title": "Franja Label",
+            "description": "Etiqueta horaria (ej. '14:00 - 15:00')"
+          },
+          "total_eventos": {
+            "type": "integer",
+            "title": "Total Eventos"
+          },
+          "total_ambulancias": {
+            "type": "integer",
+            "title": "Total Ambulancias"
+          },
+          "total_gruas": {
+            "type": "integer",
+            "title": "Total Gruas"
+          },
+          "total_accidentes_graves_o_fatales": {
+            "type": "integer",
+            "title": "Total Accidentes Graves O Fatales"
+          },
+          "porcentaje": {
+            "type": "number",
+            "title": "Porcentaje"
+          }
+        },
+        "type": "object",
+        "required": [
+          "hora",
+          "franja_label",
+          "total_eventos",
+          "total_ambulancias",
+          "total_gruas",
+          "total_accidentes_graves_o_fatales",
+          "porcentaje"
+        ],
+        "title": "PatronHoraItem"
+      },
+      "PatronesTemporalesResponse": {
+        "properties": {
+          "total_eventos_analizados": {
+            "type": "integer",
+            "title": "Total Eventos Analizados"
+          },
+          "hora_pico_maxima": {
+            "type": "string",
+            "title": "Hora Pico Maxima",
+            "description": "Hora de mayor demanda o siniestralidad"
+          },
+          "dia_pico_maximo": {
+            "type": "string",
+            "title": "Dia Pico Maximo",
+            "description": "Día con mayor índice de ocurrencia"
+          },
+          "eventos_fin_de_semana": {
+            "type": "integer",
+            "title": "Eventos Fin De Semana",
+            "description": "Total eventos en Viernes, Sábado y Domingo"
+          },
+          "eventos_entre_semana": {
+            "type": "integer",
+            "title": "Eventos Entre Semana",
+            "description": "Total eventos de Lunes a Jueves"
+          },
+          "porcentaje_fin_de_semana": {
+            "type": "number",
+            "title": "Porcentaje Fin De Semana"
+          },
+          "distribucion_por_franja": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Distribucion Por Franja",
+            "description": "Madrugada (00-06h), Mañana (06-12h), Tarde (12-18h), Noche (18-24h)"
+          },
+          "distribucion_por_hora": {
+            "items": {
+              "$ref": "#/components/schemas/PatronHoraItem"
+            },
+            "type": "array",
+            "title": "Distribucion Por Hora"
+          },
+          "distribucion_por_dia": {
+            "items": {
+              "$ref": "#/components/schemas/PatronDiaItem"
+            },
+            "type": "array",
+            "title": "Distribucion Por Dia"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_eventos_analizados",
+          "hora_pico_maxima",
+          "dia_pico_maximo",
+          "eventos_fin_de_semana",
+          "eventos_entre_semana",
+          "porcentaje_fin_de_semana",
+          "distribucion_por_franja",
+          "distribucion_por_hora",
+          "distribucion_por_dia"
+        ],
+        "title": "PatronesTemporalesResponse"
+      },
+      "PatrullajeCreate": {
+        "properties": {
+          "codigo_patrullaje": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Codigo Patrullaje",
+            "description": "Código de la bitácora"
+          },
+          "id_supervisor": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Id Supervisor",
+            "description": "ID del supervisor de turno"
+          },
+          "id_chofer": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Id Chofer",
+            "description": "ID del patrullero conductor"
+          },
+          "id_vehiculo": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Id Vehiculo",
+            "description": "ID de la patrulla asignada"
+          },
+          "fecha_recorrido": {
+            "type": "string",
+            "format": "date",
+            "title": "Fecha Recorrido",
+            "description": "Fecha del patrullaje"
+          },
+          "hora_salida": {
+            "type": "string",
+            "format": "time",
+            "title": "Hora Salida",
+            "description": "Hora de salida"
+          },
+          "hora_retorno": {
+            "type": "string",
+            "format": "time",
+            "title": "Hora Retorno",
+            "description": "Hora de regreso"
+          },
+          "ruta_descripcion": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Ruta Descripcion"
+          },
+          "odometro_inicial_km": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,7}|(?=[\\d.]{1,10}0*$)\\d{0,7}\\.\\d{0,2}0*$)"
+              }
+            ],
+            "title": "Odometro Inicial Km"
+          },
+          "odometro_final_km": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,7}|(?=[\\d.]{1,10}0*$)\\d{0,7}\\.\\d{0,2}0*$)"
+              }
+            ],
+            "title": "Odometro Final Km"
+          },
+          "novedad_en_via": {
+            "type": "boolean",
+            "title": "Novedad En Via",
+            "default": false
+          },
+          "observaciones": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 5000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observaciones"
+          }
+        },
+        "type": "object",
+        "required": [
+          "codigo_patrullaje",
+          "id_supervisor",
+          "id_chofer",
+          "id_vehiculo",
+          "fecha_recorrido",
+          "hora_salida",
+          "hora_retorno",
+          "ruta_descripcion",
+          "odometro_inicial_km",
+          "odometro_final_km"
+        ],
+        "title": "PatrullajeCreate"
+      },
+      "PatrullajeRead": {
+        "properties": {
+          "codigo_patrullaje": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Codigo Patrullaje",
+            "description": "Código de la bitácora de patrullaje"
+          },
+          "id_supervisor": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Supervisor",
+            "description": "ID del supervisor de turno"
+          },
+          "id_chofer": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Chofer",
+            "description": "ID del patrullero conductor"
+          },
+          "id_vehiculo": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Vehiculo",
+            "description": "ID de la patrulla asignada"
+          },
+          "fecha_recorrido": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Recorrido",
+            "description": "Fecha de ejecución del patrullaje"
+          },
+          "hora_salida": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hora Salida",
+            "description": "Hora de salida al recorrido"
+          },
+          "hora_retorno": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hora Retorno",
+            "description": "Hora de regreso del recorrido"
+          },
+          "ruta_descripcion": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ruta Descripcion",
+            "description": "Descripción del tramo o ruta inspeccionada"
+          },
+          "odometro_inicial_km": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,7}|(?=[\\d.]{1,10}0*$)\\d{0,7}\\.\\d{0,2}0*$)"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Odometro Inicial Km"
+          },
+          "odometro_final_km": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,7}|(?=[\\d.]{1,10}0*$)\\d{0,7}\\.\\d{0,2}0*$)"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Odometro Final Km"
+          },
+          "novedad_en_via": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Novedad En Via",
+            "default": false
+          },
+          "observaciones": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 5000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observaciones"
+          },
+          "id_patrullaje": {
+            "type": "integer",
+            "title": "Id Patrullaje",
+            "description": "Identificador único del registro de patrullaje"
+          },
+          "km_recorridos": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Km Recorridos",
+            "description": "Kilómetros calculados recorridos"
+          }
+        },
+        "type": "object",
+        "required": [
+          "codigo_patrullaje",
+          "id_patrullaje"
+        ],
+        "title": "PatrullajeRead"
+      },
+      "PersonalRead": {
+        "properties": {
+          "nombre_completo": {
+            "type": "string",
+            "maxLength": 150,
+            "minLength": 3,
+            "title": "Nombre Completo",
+            "description": "Nombre y apellido completo"
+          },
+          "rol": {
+            "$ref": "#/components/schemas/RolPersonalEnum",
+            "description": "Rol operativo asignado"
+          },
+          "activo": {
+            "type": "boolean",
+            "title": "Activo",
+            "description": "Estado de disponibilidad en el sistema",
+            "default": true
+          },
+          "id_personal": {
+            "type": "integer",
+            "title": "Id Personal",
+            "description": "Identificador único del personal"
+          }
+        },
+        "type": "object",
+        "required": [
+          "nombre_completo",
+          "rol",
+          "id_personal"
+        ],
+        "title": "PersonalRead"
+      },
+      "PuntoNegroItem": {
+        "properties": {
+          "km_tramo": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Km Tramo",
+            "description": "Kilómetro o tramo de la vía"
+          },
+          "sentido": {
+            "type": "string",
+            "title": "Sentido",
+            "description": "Sentido de circulación"
+          },
+          "tipo_accidente": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipo Accidente",
+            "description": "Tipo o clasificación de accidente"
+          },
+          "posible_causa": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Posible Causa",
+            "description": "Causa probable del siniestro"
+          },
+          "severidad": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severidad",
+            "description": "Severidad del evento (LEVE, GRAVE, FATAL)"
+          },
+          "total_eventos": {
+            "type": "integer",
+            "title": "Total Eventos",
+            "description": "Cantidad total de siniestros registrados en este punto"
+          }
+        },
+        "type": "object",
+        "required": [
+          "km_tramo",
+          "sentido",
+          "total_eventos"
+        ],
+        "title": "PuntoNegroItem"
+      },
+      "PuntosNegrosResponse": {
+        "properties": {
+          "total_tramos_criticos": {
+            "type": "integer",
+            "title": "Total Tramos Criticos",
+            "description": "Total de tramos o puntos negros identificados"
+          },
+          "total_eventos_acumulados": {
+            "type": "integer",
+            "title": "Total Eventos Acumulados",
+            "description": "Suma de eventos acumulados en estos tramos"
+          },
+          "tramos": {
+            "items": {
+              "$ref": "#/components/schemas/PuntoNegroItem"
+            },
+            "type": "array",
+            "title": "Tramos",
+            "description": "Lista de puntos negros ordenados por criticidad"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_tramos_criticos",
+          "total_eventos_acumulados"
+        ],
+        "title": "PuntosNegrosResponse"
+      },
+      "RecomendacionDespliegueItem": {
+        "properties": {
+          "prioridad": {
+            "type": "integer",
+            "title": "Prioridad",
+            "description": "Nivel de prioridad (1 = Máxima)"
+          },
+          "recurso_recomendado": {
+            "type": "string",
+            "title": "Recurso Recomendado",
+            "description": "Tipo de unidad a posicionar (AMBULANCIA, GRÚA, PATRULLA)"
+          },
+          "tramo_cobertura": {
+            "type": "string",
+            "title": "Tramo Cobertura",
+            "description": "Tramo o punto kilométrico de posicionamiento"
+          },
+          "horario_optimo": {
+            "type": "string",
+            "title": "Horario Optimo",
+            "description": "Ventana de tiempo y días recomendados"
+          },
+          "diagnostico_problema": {
+            "type": "string",
+            "title": "Diagnostico Problema",
+            "description": "Hallazgo estadístico que fundamenta la acción"
+          },
+          "accion_preventiva": {
+            "type": "string",
+            "title": "Accion Preventiva",
+            "description": "Acción táctica u operativa requerida"
+          },
+          "impacto_esperado": {
+            "type": "string",
+            "title": "Impacto Esperado",
+            "description": "Beneficio operativo proyectado (ej. reducir tiempo de arribo)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "prioridad",
+          "recurso_recomendado",
+          "tramo_cobertura",
+          "horario_optimo",
+          "diagnostico_problema",
+          "accion_preventiva",
+          "impacto_esperado"
+        ],
+        "title": "RecomendacionDespliegueItem"
+      },
+      "RecomendacionesDespliegueResponse": {
+        "properties": {
+          "fecha_generacion": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Fecha Generacion"
+          },
+          "total_recomendaciones": {
+            "type": "integer",
+            "title": "Total Recomendaciones"
+          },
+          "estrategia_general": {
+            "type": "string",
+            "title": "Estrategia General"
+          },
+          "recomendaciones": {
+            "items": {
+              "$ref": "#/components/schemas/RecomendacionDespliegueItem"
+            },
+            "type": "array",
+            "title": "Recomendaciones"
+          }
+        },
+        "type": "object",
+        "required": [
+          "fecha_generacion",
+          "total_recomendaciones",
+          "estrategia_general",
+          "recomendaciones"
+        ],
+        "title": "RecomendacionesDespliegueResponse"
+      },
+      "ReporteEjecutivoIARequest": {
+        "properties": {
+          "fecha_inicio": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Fecha Inicio",
+            "description": "Fecha y hora de inicio del periodo a auditar"
+          },
+          "fecha_fin": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Fecha Fin",
+            "description": "Fecha y hora de fin del periodo a auditar"
+          }
+        },
+        "type": "object",
+        "required": [
+          "fecha_inicio",
+          "fecha_fin"
+        ],
+        "title": "ReporteEjecutivoIARequest"
+      },
+      "ReporteEjecutivoIAResponse": {
+        "properties": {
+          "periodo": {
+            "type": "string",
+            "title": "Periodo"
+          },
+          "fecha_inicio": {
+            "type": "string",
+            "title": "Fecha Inicio"
+          },
+          "fecha_fin": {
+            "type": "string",
+            "title": "Fecha Fin"
+          },
+          "total_auxilios": {
+            "type": "integer",
+            "title": "Total Auxilios"
+          },
+          "kpis": {
+            "$ref": "#/components/schemas/KpisReporte"
+          },
+          "desglose_mensual": {
+            "items": {
+              "$ref": "#/components/schemas/DesgloseMensualItem"
+            },
+            "type": "array",
+            "title": "Desglose Mensual"
+          },
+          "desglose_sectores": {
+            "items": {
+              "$ref": "#/components/schemas/DesgloseSectorItem"
+            },
+            "type": "array",
+            "title": "Desglose Sectores"
+          },
+          "desglose_cruzado": {
+            "items": {
+              "$ref": "#/components/schemas/DesgloseCruzadoItem"
+            },
+            "type": "array",
+            "title": "Desglose Cruzado"
+          },
+          "tiempos_promedio": {
+            "$ref": "#/components/schemas/TiemposPromedio"
+          },
+          "resumen_markdown": {
+            "type": "string",
+            "title": "Resumen Markdown"
+          }
+        },
+        "type": "object",
+        "required": [
+          "periodo",
+          "fecha_inicio",
+          "fecha_fin",
+          "total_auxilios",
+          "kpis",
+          "desglose_mensual",
+          "desglose_sectores",
+          "desglose_cruzado",
+          "tiempos_promedio",
+          "resumen_markdown"
+        ],
+        "title": "ReporteEjecutivoIAResponse"
+      },
+      "RolPersonalEnum": {
+        "type": "string",
+        "enum": [
+          "SUPERVISOR",
+          "PARAMEDICO",
+          "CHOFER_AMBULANCIA",
+          "CHOFER_GRUA",
+          "PATRULLERO"
+        ],
+        "title": "RolPersonalEnum"
+      },
+      "SentidoEnum": {
+        "type": "string",
+        "enum": [
+          "ASCENDENTE",
+          "DESCENDENTE",
+          "BIDIRECCIONAL"
+        ],
+        "title": "SentidoEnum"
+      },
+      "ServicioReporteEnum": {
+        "type": "string",
+        "enum": [
+          "ambulancia",
+          "grua",
+          "patrullaje"
+        ],
+        "title": "ServicioReporteEnum"
+      },
+      "SeveridadEnum": {
+        "type": "string",
+        "enum": [
+          "LEVE",
+          "GRAVE",
+          "FATAL"
+        ],
+        "title": "SeveridadEnum"
+      },
+      "TiemposPromedio": {
+        "properties": {
+          "respuesta_min": {
+            "type": "number",
+            "title": "Respuesta Min",
+            "description": "Tiempo promedio de respuesta (arribo - llamada) en minutos"
+          },
+          "despeje_min": {
+            "type": "number",
+            "title": "Despeje Min",
+            "description": "Tiempo promedio de maniobra/despeje (término - arribo) en minutos"
+          }
+        },
+        "type": "object",
+        "required": [
+          "respuesta_min",
+          "despeje_min"
+        ],
+        "title": "TiemposPromedio"
+      },
+      "TipoFlotaEnum": {
+        "type": "string",
+        "enum": [
+          "AMBULANCIA",
+          "GRUA",
+          "PATRULLA"
+        ],
+        "title": "TipoFlotaEnum"
+      },
+      "TipoGruaEnum": {
+        "type": "string",
+        "enum": [
+          "PEQUEÑA",
+          "GRANDE",
+          "PLATAFORMA"
+        ],
+        "title": "TipoGruaEnum"
+      },
+      "TramoScoringItem": {
+        "properties": {
+          "km_inicio": {
+            "type": "number",
+            "title": "Km Inicio",
+            "description": "Kilómetro inicial del tramo agrupado"
+          },
+          "km_fin": {
+            "type": "number",
+            "title": "Km Fin",
+            "description": "Kilómetro final del tramo agrupado"
+          },
+          "tramo_label": {
+            "type": "string",
+            "title": "Tramo Label",
+            "description": "Etiqueta legible del tramo (ej. 'Km 20.0 - 25.0')"
+          },
+          "total_eventos": {
+            "type": "integer",
+            "title": "Total Eventos",
+            "description": "Total de eventos y asistencias ocurridas en este tramo"
+          },
+          "total_ambulancias": {
+            "type": "integer",
+            "title": "Total Ambulancias",
+            "description": "Total de asistencias médicas",
+            "default": 0
+          },
+          "total_gruas": {
+            "type": "integer",
+            "title": "Total Gruas",
+            "description": "Total de remolques y auxilios mecánicos",
+            "default": 0
+          },
+          "total_fatales": {
+            "type": "integer",
+            "title": "Total Fatales",
+            "description": "Accidentes con fatalidades",
+            "default": 0
+          },
+          "total_graves": {
+            "type": "integer",
+            "title": "Total Graves",
+            "description": "Accidentes graves con heridos o daños mayores",
+            "default": 0
+          },
+          "total_leves": {
+            "type": "integer",
+            "title": "Total Leves",
+            "description": "Incidentes o siniestros leves",
+            "default": 0
+          },
+          "indice_criticidad": {
+            "type": "number",
+            "title": "Indice Criticidad",
+            "description": "Índice ponderado de peligrosidad vial (ICV)"
+          },
+          "nivel_riesgo": {
+            "$ref": "#/components/schemas/NivelRiesgoEnum",
+            "description": "Clasificación del nivel de riesgo del tramo"
+          },
+          "sentido_predominante": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentido Predominante",
+            "description": "Sentido vial con mayor concentración de siniestros"
+          },
+          "principal_tipo_accidente": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Principal Tipo Accidente",
+            "description": "Tipo de accidente más frecuente"
+          },
+          "principal_motivo_o_causa": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Principal Motivo O Causa",
+            "description": "Causa o motivo recurrente"
+          },
+          "franja_horaria_mayor_incidencia": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Franja Horaria Mayor Incidencia",
+            "description": "Horario de mayor siniestralidad"
+          },
+          "recomendacion_tactica": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recomendacion Tactica",
+            "description": "Medida preventiva sugerida para este tramo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "km_inicio",
+          "km_fin",
+          "tramo_label",
+          "total_eventos",
+          "indice_criticidad",
+          "nivel_riesgo"
+        ],
+        "title": "TramoScoringItem"
+      },
+      "TramosScoringResponse": {
+        "properties": {
+          "criterio_agrupacion_km": {
+            "type": "number",
+            "title": "Criterio Agrupacion Km",
+            "description": "Tamaño del intervalo de agrupación en kilómetros"
+          },
+          "total_tramos_analizados": {
+            "type": "integer",
+            "title": "Total Tramos Analizados",
+            "description": "Cantidad total de tramos evaluados"
+          },
+          "total_eventos_evaluados": {
+            "type": "integer",
+            "title": "Total Eventos Evaluados",
+            "description": "Total de asistencias y siniestros procesados"
+          },
+          "resumen_niveles_riesgo": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Resumen Niveles Riesgo",
+            "description": "Conteo de tramos por nivel de riesgo (EXTREMO, ALTO, etc.)"
+          },
+          "top_tramos_criticos": {
+            "items": {
+              "$ref": "#/components/schemas/TramoScoringItem"
+            },
+            "type": "array",
+            "title": "Top Tramos Criticos",
+            "description": "Ranking de tramos ordenados por mayor peligrosidad"
+          }
+        },
+        "type": "object",
+        "required": [
+          "criterio_agrupacion_km",
+          "total_tramos_analizados",
+          "total_eventos_evaluados",
+          "resumen_niveles_riesgo"
+        ],
+        "title": "TramosScoringResponse"
+      },
+      "TurnoEnum": {
+        "type": "integer",
+        "enum": [
+          1,
+          2,
+          3
+        ],
+        "title": "TurnoEnum"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "VehiculoRead": {
+        "properties": {
+          "codigo_interno": {
+            "type": "string",
+            "maxLength": 20,
+            "minLength": 2,
+            "title": "Codigo Interno",
+            "description": "Código de identificación interno institucional"
+          },
+          "placa": {
+            "type": "string",
+            "maxLength": 10,
+            "minLength": 6,
+            "title": "Placa",
+            "description": "Placa oficial de circulación"
+          },
+          "tipo_flota": {
+            "$ref": "#/components/schemas/TipoFlotaEnum",
+            "description": "Tipo de vehículo de asistencia"
+          },
+          "descripcion": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Descripcion",
+            "description": "Descripción técnica o modelo del vehículo"
+          },
+          "activo": {
+            "type": "boolean",
+            "title": "Activo",
+            "description": "Estado operativo del vehículo",
+            "default": true
+          },
+          "id_vehiculo": {
+            "type": "integer",
+            "title": "Id Vehiculo",
+            "description": "Identificador único del vehículo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "codigo_interno",
+          "placa",
+          "tipo_flota",
+          "id_vehiculo"
+        ],
+        "title": "VehiculoRead"
+      }
+    }
+  }
+}

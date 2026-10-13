@@ -1,0 +1,8 @@
+﻿.env
+__pycache__/
+*.pyc
+temp_informes/
+temp_pdfs/
+temp_storage/
+venv/
+node_modules/
