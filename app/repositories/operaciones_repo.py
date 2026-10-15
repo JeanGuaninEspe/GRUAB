@@ -1,10 +1,11 @@
 """
 Repositorio para operaciones transaccionales de asistencias de ambulancias, grúas y patrullaje.
 """
-from typing import Optional, List
-from datetime import date
+from typing import Optional, List, Dict, Any
+from datetime import date, datetime, time
 from sqlalchemy.orm import Session
 from app.models.transaccionales import AsistenciaAmbulancia, AsistenciaGrua, BitacoraPatrullaje
+from app.models.catalogos import CatVehiculoConcesion
 from app.schemas.operaciones import AmbulanciaCreate, GruaCreate, PatrullajeCreate
 from app.repositories.base import BaseRepository
 
@@ -181,6 +182,181 @@ class OperacionesRepository:
         db.commit()
         db.refresh(db_obj)
         return db_obj
+
+    # ----------------------------------------------------
+    # BÚSQUEDAS DETERMINISTAS PARA AGENTE IA (SOLO SELECT)
+    # ----------------------------------------------------
+    def buscar_asistencias(
+        self,
+        db: Session,
+        fecha_inicio: Optional[date] = None,
+        fecha_fin: Optional[date] = None,
+        tipo_servicio: Optional[str] = None,
+        zona: Optional[str] = None,
+        estado: Optional[str] = None,
+        limit: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """
+        Retorna registros detallados de asistencias exclusivamente con SELECT
+        filtrados por fecha, tipo de servicio, zona geográfica y severidad/estado.
+        """
+        svc = (tipo_servicio or "todos").lower().strip()
+        resultados: List[Dict[str, Any]] = []
+
+        dt_inicio = datetime.combine(fecha_inicio, time.min) if fecha_inicio else None
+        dt_fin = datetime.combine(fecha_fin, time.max) if fecha_fin else None
+
+        if svc in ("ambulancia", "ambulancias", "todos"):
+            q_amb = db.query(AsistenciaAmbulancia)
+            if dt_inicio:
+                q_amb = q_amb.filter(AsistenciaAmbulancia.ts_llamada >= dt_inicio)
+            if dt_fin:
+                q_amb = q_amb.filter(AsistenciaAmbulancia.ts_llamada <= dt_fin)
+            if zona:
+                q_amb = q_amb.filter(
+                    (AsistenciaAmbulancia.sector_referencia.ilike(f"%{zona}%")) |
+                    (AsistenciaAmbulancia.sentido.ilike(f"%{zona}%"))
+                )
+            if estado:
+                q_amb = q_amb.filter(
+                    (AsistenciaAmbulancia.severidad.ilike(f"%{estado}%")) |
+                    (AsistenciaAmbulancia.tipo_incidente.ilike(f"%{estado}%"))
+                )
+            for amb in q_amb.order_by(AsistenciaAmbulancia.ts_llamada.desc()).limit(limit).all():
+                resultados.append({
+                    "tipo_servicio": "AMBULANCIA",
+                    "codigo_formulario": amb.codigo_formulario,
+                    "fecha_hora": amb.ts_llamada.isoformat() if amb.ts_llamada else None,
+                    "sector": amb.sector_referencia,
+                    "abscisa_km": float(amb.abscisa_km) if amb.abscisa_km is not None else None,
+                    "sentido": amb.sentido,
+                    "motivo_atencion": amb.motivo_atencion,
+                    "tipo_incidente": amb.tipo_incidente,
+                    "severidad": amb.severidad,
+                    "paciente": amb.nombre_paciente,
+                })
+
+        if svc in ("grua", "gruas", "todos"):
+            q_gru = db.query(AsistenciaGrua)
+            if dt_inicio:
+                q_gru = q_gru.filter(AsistenciaGrua.ts_llamada >= dt_inicio)
+            if dt_fin:
+                q_gru = q_gru.filter(AsistenciaGrua.ts_llamada <= dt_fin)
+            if zona:
+                q_gru = q_gru.filter(
+                    (AsistenciaGrua.sector_referencia.ilike(f"%{zona}%")) |
+                    (AsistenciaGrua.sentido.ilike(f"%{zona}%"))
+                )
+            if estado:
+                q_gru = q_gru.filter(
+                    (AsistenciaGrua.severidad.ilike(f"%{estado}%")) |
+                    (AsistenciaGrua.tipo_grua.ilike(f"%{estado}%")) |
+                    (AsistenciaGrua.motivo_atencion.ilike(f"%{estado}%"))
+                )
+            for gru in q_gru.order_by(AsistenciaGrua.ts_llamada.desc()).limit(limit).all():
+                resultados.append({
+                    "tipo_servicio": "GRUA",
+                    "codigo_formulario": gru.codigo_formulario,
+                    "fecha_hora": gru.ts_llamada.isoformat() if gru.ts_llamada else None,
+                    "sector": gru.sector_referencia,
+                    "abscisa_km": float(gru.abscisa_km) if gru.abscisa_km is not None else None,
+                    "sentido": gru.sentido,
+                    "tipo_grua": gru.tipo_grua,
+                    "placa_asistida": gru.placa_asistida,
+                    "tipo_vehiculo": gru.tipo_vehiculo_asistido,
+                    "motivo_atencion": gru.motivo_atencion,
+                    "severidad": gru.severidad,
+                })
+
+        resultados.sort(key=lambda r: r.get("fecha_hora") or "", reverse=True)
+        return resultados[:limit]
+
+    def buscar_unidad(
+        self,
+        db: Session,
+        id_o_placa: str,
+        limit: int = 10,
+    ) -> List[Dict[str, Any]]:
+        """
+        Busca información de una unidad o vehículo (SELECT) por código interno,
+        placa o id en la flota de concesión (dbo.cat_vehiculos_concesion) y registros
+        de asistencias relacionadas.
+        """
+        if not id_o_placa:
+            return []
+
+        criterio = id_o_placa.strip()
+        criterio_limpio = criterio.replace("-", "").replace(" ", "").upper()
+        resultados: List[Dict[str, Any]] = []
+
+        # 1. Búsqueda en catálogo de vehículos de la concesión
+        q_veh = db.query(CatVehiculoConcesion)
+        if criterio.isdigit():
+            v_id = q_veh.filter(CatVehiculoConcesion.id_vehiculo == int(criterio)).first()
+            if v_id:
+                resultados.append({
+                    "tipo_registro": "FLOTA_CONCESION",
+                    "id_vehiculo": v_id.id_vehiculo,
+                    "codigo_interno": v_id.codigo_interno,
+                    "placa": v_id.placa,
+                    "tipo_flota": v_id.tipo_flota,
+                    "descripcion": v_id.descripcion,
+                    "activo": v_id.activo,
+                })
+
+        vehiculos = q_veh.filter(
+            (CatVehiculoConcesion.codigo_interno.ilike(f"%{criterio}%")) |
+            (CatVehiculoConcesion.placa.ilike(f"%{criterio}%")) |
+            (CatVehiculoConcesion.placa.ilike(f"%{criterio_limpio}%"))
+        ).limit(limit).all()
+
+        for v in vehiculos:
+            if not any(r.get("id_vehiculo") == v.id_vehiculo for r in resultados):
+                resultados.append({
+                    "tipo_registro": "FLOTA_CONCESION",
+                    "id_vehiculo": v.id_vehiculo,
+                    "codigo_interno": v.codigo_interno,
+                    "placa": v.placa,
+                    "tipo_flota": v.tipo_flota,
+                    "descripcion": v.descripcion,
+                    "activo": v.activo,
+                })
+
+        # 2. Búsqueda por placa asistida en grúas
+        q_gru = db.query(AsistenciaGrua).filter(
+            (AsistenciaGrua.placa_asistida.ilike(f"%{criterio}%")) |
+            (AsistenciaGrua.placa_asistida.ilike(f"%{criterio_limpio}%")) |
+            (AsistenciaGrua.codigo_formulario.ilike(f"%{criterio}%"))
+        ).order_by(AsistenciaGrua.ts_llamada.desc()).limit(limit).all()
+
+        for g in q_gru:
+            resultados.append({
+                "tipo_registro": "ASISTENCIA_GRUA",
+                "codigo_formulario": g.codigo_formulario,
+                "placa_asistida": g.placa_asistida,
+                "tipo_vehiculo": g.tipo_vehiculo_asistido,
+                "fecha_hora": g.ts_llamada.isoformat() if g.ts_llamada else None,
+                "sector": g.sector_referencia,
+                "motivo_atencion": g.motivo_atencion,
+                "severidad": g.severidad,
+            })
+
+        # 3. Búsqueda por código de formulario en ambulancias
+        q_amb = db.query(AsistenciaAmbulancia).filter(
+            AsistenciaAmbulancia.codigo_formulario.ilike(f"%{criterio}%")
+        ).order_by(AsistenciaAmbulancia.ts_llamada.desc()).limit(limit).all()
+
+        for a in q_amb:
+            resultados.append({
+                "tipo_registro": "ASISTENCIA_AMBULANCIA",
+                "codigo_formulario": a.codigo_formulario,
+                "fecha_hora": a.ts_llamada.isoformat() if a.ts_llamada else None,
+                "sector": a.sector_referencia,
+                "motivo_atencion": a.motivo_atencion,
+                "severidad": a.severidad,
+            })
+
+        return resultados[:limit]
 
 
 operaciones_repo = OperacionesRepository()

@@ -29,6 +29,10 @@ import {
   User,
   Users,
   Wrench,
+  Zap,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -50,6 +54,7 @@ import {
 } from "@/components/ui/select";
 import { catalogosService } from "@/services/catalogos.service";
 import { operacionesService } from "@/services/operaciones.service";
+import { aiService } from "@/services/ai.service";
 import { PersonalRead, VehiculoRead } from "@/types/api";
 
 type ServiceType = "ambulancia" | "grua";
@@ -169,7 +174,7 @@ const CAUSAS_GRUA = [
   "Problemas en sistema de frenos",
 ];
 
-export function RegistroOperacionesForm({ fixedService }: { fixedService?: ServiceType }) {
+function RegistroOperacionesFormContent({ fixedService }: { fixedService?: ServiceType }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const servicioParam = searchParams.get("servicio");
@@ -221,6 +226,168 @@ export function RegistroOperacionesForm({ fixedService }: { fixedService?: Servi
     observaciones: "",
   });
 
+  // Estados de IA para autocompletado de despacho
+  const [aiAccordionOpen, setAiAccordionOpen] = React.useState(false);
+  const [textoReporteAi, setTextoReporteAi] = React.useState("");
+  const [procesandoAi, setProcesandoAi] = React.useState(false);
+
+  const handleProcesarAi = async () => {
+    if (!textoReporteAi.trim()) {
+      toast.error("Ingrese el texto del reporte de radio o llamada");
+      return;
+    }
+    setProcesandoAi(true);
+    try {
+      const parsed = await aiService.parsearDespacho(textoReporteAi);
+
+      setFormData((prev) => {
+        const next = { ...prev };
+
+        // 1. Tipo de servicio
+        if (parsed.tipo_asistencia === "ambulancia" || parsed.tipo_asistencia === "grua") {
+          next.servicio = parsed.tipo_asistencia;
+        }
+
+        // 2. Código de formulario / Número de hoja
+        if (parsed.codigo_formulario) {
+          next.codigo_formulario = parsed.codigo_formulario;
+        }
+
+        // 3. Turno
+        if (parsed.turno && ["1", "2", "3"].includes(parsed.turno)) {
+          next.turno = parsed.turno as "1" | "2" | "3";
+        }
+
+        // 4. Tipo de grúa
+        if (parsed.tipo_grua && ["PEQUEÑA", "GRANDE", "PLATAFORMA"].includes(parsed.tipo_grua)) {
+          next.tipo_grua = parsed.tipo_grua as TipoGruaType;
+        }
+
+        // 5. Georreferenciación
+        if (parsed.abscisa_km !== null && parsed.abscisa_km !== undefined) {
+          next.abscisa_km = String(parsed.abscisa_km);
+          if (next.servicio === "grua" && (!prev.km_origen_traslado || prev.km_origen_traslado === prev.abscisa_km)) {
+            next.km_origen_traslado = String(parsed.abscisa_km);
+          }
+        }
+        if (parsed.ubicacion_referencia) {
+          next.sector_referencia = parsed.ubicacion_referencia;
+        }
+        if (parsed.sentido && ["ASCENDENTE", "DESCENDENTE", "BIDIRECCIONAL"].includes(parsed.sentido)) {
+          next.sentido = parsed.sentido;
+        }
+
+        // 6. Severidad / Prioridad
+        if (parsed.prioridad && ["LEVE", "GRAVE", "FATAL"].includes(parsed.prioridad)) {
+          next.severidad = parsed.prioridad;
+        }
+
+        // 7. Personal (Búsqueda por coincidencia de nombre / tokens)
+        if (parsed.chofer) {
+          const chClean = parsed.chofer.toLowerCase().replace(/^(sr\.|sr|don|conductor|operador)\s*/i, "").trim();
+          const words = chClean.split(/\s+/).filter((w) => w.length > 2);
+          const foundChofer = personal.find((p) => {
+            const name = p.nombre_completo.toLowerCase();
+            return name.includes(chClean) || chClean.includes(name) || (words.length > 0 && words.some((w) => name.includes(w)));
+          });
+          if (foundChofer) {
+            next.id_chofer = foundChofer.id_personal.toString();
+          }
+        }
+        if (parsed.supervisor) {
+          const supClean = parsed.supervisor.toLowerCase().replace(/^(ing\.|ing|lic\.|lic|sr\.|sr)\s*/i, "").trim();
+          const words = supClean.split(/\s+/).filter((w) => w.length > 2);
+          const foundSup = supervisores.find((p) => {
+            const name = p.nombre_completo.toLowerCase();
+            return name.includes(supClean) || supClean.includes(name) || (words.length > 0 && words.some((w) => name.includes(w)));
+          });
+          if (foundSup) {
+            next.id_supervisor = foundSup.id_personal.toString();
+          }
+        }
+        if (parsed.paramedico) {
+          const parClean = parsed.paramedico.toLowerCase().replace(/^(lcda\.|lcda|lic\.|lic|dra\.|dra|dr\.|dr)\s*/i, "").trim();
+          const words = parClean.split(/\s+/).filter((w) => w.length > 2);
+          const foundPar = paramedicos.find((p) => {
+            const name = p.nombre_completo.toLowerCase();
+            return name.includes(parClean) || parClean.includes(name) || (words.length > 0 && words.some((w) => name.includes(w)));
+          });
+          if (foundPar) {
+            next.id_paramedico = foundPar.id_personal.toString();
+          }
+        }
+
+        // 8. Datos Médicos / Ambulancia
+        if (parsed.nombre_paciente) {
+          next.nombre_paciente = parsed.nombre_paciente;
+        }
+        if (parsed.destino_paciente) {
+          next.destino_paciente = parsed.destino_paciente;
+        }
+        if (parsed.descripcion_falla_o_motivo) {
+          if (next.servicio === "ambulancia") {
+            next.motivo_atencion = parsed.descripcion_falla_o_motivo;
+          } else {
+            // En grúa verificar si coincide con causas conocidas
+            const causaMatch = CAUSAS_GRUA.find((c) =>
+              c.toLowerCase().includes(parsed.descripcion_falla_o_motivo!.toLowerCase()) ||
+              parsed.descripcion_falla_o_motivo!.toLowerCase().includes("mecánic") ||
+              parsed.descripcion_falla_o_motivo!.toLowerCase().includes("mecanic")
+            );
+            if (causaMatch) {
+              next.posible_causa = causaMatch;
+            }
+            next.observaciones = prev.observaciones
+              ? `${prev.observaciones} | ${parsed.descripcion_falla_o_motivo}`
+              : parsed.descripcion_falla_o_motivo;
+          }
+        }
+
+        // 9. Datos de Grúa y Vehículo
+        if (parsed.placa_vehiculo) {
+          next.placa_asistida = parsed.placa_vehiculo;
+        }
+        if (parsed.usuario_reporta) {
+          next.usuario_reporta = parsed.usuario_reporta;
+        }
+        if (parsed.vehiculo_involucrado) {
+          const matchVeh = TIPOS_VEHICULO_GRUA.find((t) =>
+            t.toLowerCase().includes(parsed.vehiculo_involucrado!.toLowerCase()) ||
+            parsed.vehiculo_involucrado!.toLowerCase().includes("volqueta") ||
+            parsed.vehiculo_involucrado!.toLowerCase().includes("camión") ||
+            parsed.vehiculo_involucrado!.toLowerCase().includes("camion")
+          );
+          if (matchVeh) {
+            next.tipo_vehiculo_asistido = matchVeh;
+          } else {
+            next.tipo_vehiculo_asistido = parsed.vehiculo_involucrado;
+          }
+        }
+
+        // 10. Odómetros
+        if (parsed.odometro_salida_km !== null && parsed.odometro_salida_km !== undefined) {
+          next.odometro_salida_km = String(parsed.odometro_salida_km);
+        }
+        if (parsed.odometro_llegada_km !== null && parsed.odometro_llegada_km !== undefined) {
+          next.odometro_llegada_km = String(parsed.odometro_llegada_km);
+        }
+
+        return next;
+      });
+
+      toast.success("Campos autocompletados", {
+        description: "Se procesó el reporte con éxito. Puedes revisar o ajustar cualquier dato.",
+      });
+    } catch (err: any) {
+      console.error("Error al autocompletar despacho:", err);
+      toast.error("No se pudo procesar el reporte", {
+        description: err?.message || "Ocurrió un error al analizar el texto.",
+      });
+    } finally {
+      setProcesandoAi(false);
+    }
+  };
+
   // Si cambia el parámetro de URL, sincronizar el servicio
   React.useEffect(() => {
     if (servicioParam === "grua" || servicioParam === "ambulancia") {
@@ -264,12 +431,12 @@ export function RegistroOperacionesForm({ fixedService }: { fixedService?: Servi
     );
   }, [personal]);
 
-  // Choferes filtrados estrictamente por tipo de servicio sin mezclas
+  // Choferes filtrados por tipo de servicio
   const choferes = React.useMemo(() => {
     if (formData.servicio === "ambulancia") {
       return personal.filter((p) => p.rol === "CHOFER_AMBULANCIA");
     } else {
-      return personal.filter((p) => p.rol === "CHOFER_GRUA");
+      return personal.filter((p) => p.rol === "CHOFER_GRUA" || p.rol === "PATRULLERO");
     }
   }, [personal, formData.servicio]);
 
@@ -669,6 +836,105 @@ export function RegistroOperacionesForm({ fixedService }: { fixedService?: Servi
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* ========================================================================= */}
+        {/* Autocompletar desde reporte de radio / WhatsApp */}
+        {/* ========================================================================= */}
+        <Card className="border border-indigo-200/70 dark:border-indigo-900/40 bg-gradient-to-r from-indigo-50/50 via-white to-sky-50/30 dark:from-indigo-950/20 dark:via-zinc-900/90 dark:to-sky-950/10 shadow-xs overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setAiAccordionOpen((prev) => !prev)}
+            className="w-full p-4 flex items-center justify-between text-left hover:bg-indigo-50/40 dark:hover:bg-indigo-950/30 transition-colors cursor-pointer"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="p-1.5 rounded-lg bg-indigo-600/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400">
+                <Zap className="size-4" />
+              </div>
+              <div>
+                <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                  ⚡ Autocompletar desde reporte de radio / llamada
+                </span>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                  Pega el reporte de WhatsApp o radio para completar los campos automáticamente.
+                </p>
+              </div>
+            </div>
+            <div className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200">
+              {aiAccordionOpen ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+            </div>
+          </button>
+
+          <AnimatePresence>
+            {aiAccordionOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <div className="p-4 pt-1 border-t border-indigo-100 dark:border-indigo-900/30 space-y-3">
+                  <Textarea
+                    rows={4}
+                    placeholder={"Pega aquí el reporte de WhatsApp o radio...\nEj:\nASISTENCIAS DE GRÚAS PEAJE LOS ÁNGELES\nConductor: Yasmani Maldonado\nPLACAS: GSF-7761\nKm 184 Gasolinera Génesis"}
+                    value={textoReporteAi}
+                    onChange={(e) => setTextoReporteAi(e.target.value)}
+                    className="bg-white/80 dark:bg-zinc-950/70 text-xs border-indigo-200/80 dark:border-indigo-900/60 focus-visible:ring-indigo-500 resize-none font-normal"
+                  />
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                      Los campos se rellenan automáticamente y podrás editarlos antes de guardar.
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {textoReporteAi && (
+                        <motion.div
+                          whileHover={{ scale: 1.01 }}
+                          whileTap={{ scale: 0.97 }}
+                          transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                        >
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setTextoReporteAi("")}
+                            disabled={procesandoAi}
+                            className="h-8 text-xs text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 cursor-pointer"
+                          >
+                            Limpiar
+                          </Button>
+                        </motion.div>
+                      )}
+                      <motion.div
+                        whileHover={{ scale: 1.01 }}
+                        whileTap={{ scale: 0.97 }}
+                        transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                      >
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={handleProcesarAi}
+                          disabled={procesandoAi || !textoReporteAi.trim()}
+                          className="h-8 gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs cursor-pointer"
+                        >
+                          {procesandoAi ? (
+                            <>
+                              <Loader2 className="size-3.5 animate-spin" />
+                              <span>Procesando reporte...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Zap className="size-3.5" />
+                              <span>Completar formulario</span>
+                            </>
+                          )}
+                        </Button>
+                      </motion.div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </Card>
+
         {/* ========================================================================= */}
         {/* BLOQUE 1: Asignación Operativa y Turno */}
         {/* ========================================================================= */}
@@ -1669,5 +1935,20 @@ export function RegistroOperacionesForm({ fixedService }: { fixedService?: Servi
         </div>
       </form>
     </div>
+  );
+}
+
+export function RegistroOperacionesForm(props: { fixedService?: ServiceType }) {
+  return (
+    <React.Suspense
+      fallback={
+        <div className="w-full max-w-5xl mx-auto p-12 text-center text-xs text-zinc-500 flex flex-col items-center justify-center gap-2">
+          <Loader2 className="size-5 text-indigo-600 animate-spin" />
+          <span>Cargando formulario de operaciones...</span>
+        </div>
+      }
+    >
+      <RegistroOperacionesFormContent {...props} />
+    </React.Suspense>
   );
 }

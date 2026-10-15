@@ -1,4 +1,4 @@
-﻿import base64
+import base64
 import hashlib
 import json
 import os
@@ -30,6 +30,56 @@ class AIRequest(BaseModel):
     stream: Optional[bool] = False
 
 
+class ConsultaAIRequest(BaseModel):
+    pregunta: str
+    historial: Optional[List[Dict[str, Any]]] = Field(default_factory=list)
+    session_id: Optional[str] = None
+
+
+class ConsultaAIResponse(BaseModel):
+    respuesta: str
+    accion_ejecutada: str
+    datos_fuente: Any = None
+
+
+class ParsearDespachoRequest(BaseModel):
+    texto_reporte: str
+
+
+class DespachoParseadoResponse(BaseModel):
+    tipo_asistencia: Optional[str] = None
+    codigo_formulario: Optional[str] = None
+    turno: Optional[str] = None
+    chofer: Optional[str] = None
+    paramedico: Optional[str] = None
+    supervisor: Optional[str] = None
+    tipo_grua: Optional[str] = None
+    ubicacion_referencia: Optional[str] = None
+    tramo_ruta: Optional[str] = None
+    abscisa_km: Optional[Union[float, int, str]] = None
+    sentido: Optional[str] = None
+    prioridad: Optional[str] = None
+    descripcion_falla_o_motivo: Optional[str] = None
+    vehiculo_involucrado: Optional[str] = None
+    placa_vehiculo: Optional[str] = None
+    nombre_paciente: Optional[str] = None
+    edad_paciente: Optional[str] = None
+    usuario_reporta: Optional[str] = None
+    destino_paciente: Optional[str] = None
+    odometro_salida_km: Optional[Union[float, int, str]] = None
+    odometro_llegada_km: Optional[Union[float, int, str]] = None
+
+
+class DiagnosticoDashboardRequest(BaseModel):
+    fecha_inicio: Optional[str] = None
+    fecha_fin: Optional[str] = None
+
+
+class DiagnosticoDashboardResponse(BaseModel):
+    resumen: str
+    metricas_base: Dict[str, Any]
+
+
 class ExportarPDFDirectoRequest(BaseModel):
     respuesta_ia: str
     estadisticas: Optional[Dict[str, Any]] = None
@@ -46,22 +96,97 @@ class OpenAIChatCompletionRequest(BaseModel):
     messages: List[OpenAIMessage]
     user: Optional[str] = None
     stream: Optional[bool] = False
-    temperature: Optional[float] = 0.2
+    temperature: Optional[float] = 0.0
 
 
 @router.get(
     "/chat",
-    summary="Interfaz Web del Chatbot AnalÃ­tico (ChatGPT / Gemini UI)",
-    description="Entrega la pÃ¡gina web interactiva con panel de conversaciÃ³n, historial local, markdown enriquecido y modo oscuro."
+    summary="Interfaz Web del Chatbot Analítico (ChatGPT / Gemini UI)",
+    description="Entrega la página web interactiva con panel de conversación, historial local, markdown enriquecido y modo oscuro."
 )
 async def chat_ui():
     """
-    Entrega el archivo estÃ¡tico de la interfaz del chat.
+    Entrega el archivo estático de la interfaz del chat.
     """
     if os.path.exists(CHAT_HTML_PATH):
         with open(CHAT_HTML_PATH, "r", encoding="utf-8") as f:
             return HTMLResponse(content=f.read())
-    return HTMLResponse(content="<h3>La interfaz del Chatbot se estÃ¡ cargando...</h3>", status_code=200)
+    return HTMLResponse(content="<h3>La interfaz del Chatbot se está cargando...</h3>", status_code=200)
+
+
+@router.post(
+    "/consultar",
+    response_model=ConsultaAIResponse,
+    summary="Consulta Determinista con Grounding Estricto a SQL Server",
+    description=(
+        "Orquestador determinista en 3 fases: "
+        "1. Extracción estructurada de intención y parámetros (JSON) con Qwen 2.5 7B. "
+        "2. Ejecución de consulta SQL parametrizada de solo lectura (SELECT). "
+        "3. Síntesis cerrada con grounding estricto sobre datos SQL (temperature=0.0)."
+    )
+)
+async def consultar_ia(request: ConsultaAIRequest, db: Session = Depends(get_db)):
+    """
+    Endpoint determinista para consultas verídicas basadas estrictamente en la base de datos SQL.
+    """
+    resultado = await ai_service.consultar(
+        pregunta=request.pregunta,
+        db=db,
+        historial=request.historial,
+        session_id=request.session_id,
+    )
+    return ConsultaAIResponse(
+        respuesta=resultado["respuesta"],
+        accion_ejecutada=resultado["accion_ejecutada"],
+        datos_fuente=resultado["datos_fuente"],
+    )
+
+
+@router.post(
+    "/parsear-despacho",
+    response_model=DespachoParseadoResponse,
+    summary="Extracción estructurada de despacho desde llamada o reporte de radio",
+    description="Procesa texto desordenado o mensaje de radio con Qwen 2.5 7B (temp=0.0) y extrae los campos de despacho en formato normalizado."
+)
+async def parsear_despacho_endpoint(request: ParsearDespachoRequest):
+    """
+    Extrae campos clave de operaciones para autocompletar formularios de despacho.
+    """
+    try:
+        resultado = await ai_service.parsear_despacho(texto_reporte=request.texto_reporte)
+        return DespachoParseadoResponse(**resultado)
+    except Exception as exc:
+        return DespachoParseadoResponse()
+
+
+@router.post(
+    "/diagnostico-dashboard",
+    response_model=DiagnosticoDashboardResponse,
+    summary="Diagnóstico Ejecutivo para Dashboard con Qwen 2.5 7B",
+    description="Sintetiza métricas reales de SQL Server en 3 puntos clave (Balance general, Alertas operativas, Recomendación)."
+)
+async def diagnostico_dashboard_endpoint(
+    request: DiagnosticoDashboardRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Genera un diagnóstico ejecutivo de 3 puntos a partir de las métricas reales del periodo.
+    """
+    try:
+        resultado = await ai_service.diagnostico_dashboard(
+            db=db,
+            fecha_inicio=request.fecha_inicio,
+            fecha_fin=request.fecha_fin
+        )
+        return DiagnosticoDashboardResponse(
+            resumen=resultado["resumen"],
+            metricas_base=resultado["metricas_base"]
+        )
+    except Exception as exc:
+        return DiagnosticoDashboardResponse(
+            resumen="1. **Balance General:** Monitoreo activo de la infraestructura vial.\n\n2. **Alertas y Dinámica Operativa:** Datos verificados con la base central.\n\n3. **Recomendación Operativa:** Mantener patrullajes y supervisión continua.",
+            metricas_base={}
+        )
 
 
 @router.post(

@@ -10,6 +10,7 @@ import {
   Calendar,
   Car,
   CheckCircle2,
+  ChevronDown,
   Clock,
   Compass,
   Download,
@@ -41,7 +42,15 @@ import {
   WifiOff,
   Wrench,
   X,
+  Bot,
+  Zap,
+  Loader2,
+  Send,
+  CornerDownLeft,
+  Database,
 } from "lucide-react";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -56,6 +65,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -81,6 +97,7 @@ import { DateRangeFilter } from "@/components/dashboard/date-range-filter";
 import { RoleGate } from "@/components/auth/role-gate";
 import { useAuth } from "@/context/auth-context";
 import { UserDropdown } from "@/components/dashboard/user-dropdown";
+import { aiService, ConsultaAIResponse, DiagnosticoDashboardResponse } from "@/services/ai.service";
 import {
   Area,
   AreaChart,
@@ -239,6 +256,47 @@ export function DashboardView({ onLogout }: DashboardViewProps) {
   const [isExporting, setIsExporting] = React.useState(false);
   const [exportMessage, setExportMessage] = React.useState<string | null>(null);
 
+  // Estados de IA para Diagnóstico Ejecutivo y Asistente Rápido Omnibar
+  const [diagnosticoData, setDiagnosticoData] = React.useState<DiagnosticoDashboardResponse | null>(null);
+  const [cargandoDiagnostico, setCargandoDiagnostico] = React.useState(false);
+  const [isBalanceOperativoOpen, setIsBalanceOperativoOpen] = React.useState(false);
+
+  const [isAiAssistantOpen, setIsAiAssistantOpen] = React.useState(false);
+  const [aiQuery, setAiQuery] = React.useState("");
+  const [aiLoading, setAiLoading] = React.useState(false);
+  const [aiResponse, setAiResponse] = React.useState<ConsultaAIResponse | null>(null);
+
+  // Atajo de teclado para abrir el Asistente IA (Ctrl+K o Cmd+K)
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setIsAiAssistantOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+
+  const handleConsultarAI = async (preguntaDirecta?: string) => {
+    const query = (preguntaDirecta || aiQuery).trim();
+    if (!query) return;
+    if (preguntaDirecta) setAiQuery(preguntaDirecta);
+    setAiLoading(true);
+    try {
+      const res = await aiService.consultarAI(query);
+      setAiResponse(res);
+    } catch (err: any) {
+      console.error("Error al consultar:", err);
+      toast.error("No se pudo completar la consulta", {
+        description: err?.message || "Ocurrió un error al buscar la información. Intente nuevamente.",
+      });
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   // Mapas para resolución de nombres de IDs de Catálogo
   const personalMap = React.useMemo(() => {
     const map = new Map<number, string>();
@@ -295,11 +353,36 @@ export function DashboardView({ onLogout }: DashboardViewProps) {
     return getPresetRangeInfo(dateRangePreset).label;
   }, [dateRangePreset, getPresetRangeInfo]);
 
+  // Carga reactiva del balance operativo al cambiar el rango de fechas
+  const cargarBalanceReactivo = React.useCallback(async () => {
+    setCargandoDiagnostico(true);
+    try {
+      const rangeInfo = getPresetRangeInfo(dateRangePreset);
+      const res = await aiService.obtenerDiagnosticoDashboard({
+        desde: rangeInfo.fecha_inicio,
+        hasta: rangeInfo.fecha_fin,
+      });
+      setDiagnosticoData(res);
+    } catch (err: any) {
+      console.warn("Fallo al obtener balance operativo reactivo:", err);
+    } finally {
+      setCargandoDiagnostico(false);
+    }
+  }, [dateRangePreset, getPresetRangeInfo]);
+
+  React.useEffect(() => {
+    cargarBalanceReactivo();
+  }, [cargarBalanceReactivo]);
+
   // Función principal de carga y filtrado reactivo de datos desde el backend FastAPI
   const fetchDashboardData = React.useCallback(
     async (showRefreshingSpinner = false) => {
-      if (showRefreshingSpinner) setIsRefreshing(true);
-      else setIsLoading(true);
+      if (showRefreshingSpinner) {
+        setIsRefreshing(true);
+        cargarBalanceReactivo();
+      } else {
+        setIsLoading(true);
+      }
       setApiError(null);
 
       const rangeInfo = getPresetRangeInfo(dateRangePreset);
@@ -430,6 +513,7 @@ export function DashboardView({ onLogout }: DashboardViewProps) {
       selectedDashboardTurno,
       selectedVehiculoFilter,
       getPresetRangeInfo,
+      cargarBalanceReactivo,
     ]
   );
 
@@ -1200,7 +1284,27 @@ export function DashboardView({ onLogout }: DashboardViewProps) {
             </Breadcrumb>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Botón de Asistente de Consultas Rápidas */}
+            <motion.div
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.97 }}
+              transition={{ type: "spring", stiffness: 400, damping: 25 }}
+            >
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsAiAssistantOpen(true)}
+                className="h-8 px-2.5 sm:px-3 text-xs gap-2 cursor-pointer bg-indigo-50/60 hover:bg-indigo-100/80 dark:bg-indigo-950/30 dark:hover:bg-indigo-900/40 border-indigo-200/80 dark:border-indigo-800/80 text-indigo-700 dark:text-indigo-300"
+              >
+                <Search className="size-3.5 text-indigo-600 dark:text-indigo-400" />
+                <span className="hidden sm:inline font-medium">Consultas Rápidas</span>
+                <kbd className="hidden md:inline-flex pointer-events-none h-4 select-none items-center gap-0.5 rounded border border-indigo-200 dark:border-indigo-700 bg-white dark:bg-zinc-800 px-1 font-mono text-[9px] text-indigo-600 dark:text-indigo-300">
+                  ⌘K
+                </kbd>
+              </Button>
+            </motion.div>
+
             {/* Botón de Refresco Manual con animación táctil */}
             <motion.div
               whileHover={{ scale: 1.02 }}
@@ -1409,50 +1513,141 @@ export function DashboardView({ onLogout }: DashboardViewProps) {
                     </div>
                   </Card>
 
-                  {/* Banner de Recomendación Estratégica con IA (Orientado a usuario final, sin modelo técnico) */}
-                  {dashboardData?.recomendacion_ejecutiva && (
-                    <Card className="border-indigo-200/80 dark:border-indigo-900/60 bg-gradient-to-r from-indigo-50/70 via-purple-50/50 to-blue-50/60 dark:from-indigo-950/40 dark:via-purple-950/30 dark:to-blue-950/40 shadow-xs rounded-xl p-5 overflow-hidden relative">
-                      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                        <div className="flex items-start gap-3.5">
-                          <div className="size-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-md">
-                            <Sparkles className="size-5 animate-pulse" />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xs font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-400 flex items-center gap-1">
-                                Recomendación Estratégica Preventiva
-                              </span>
-                              <Badge className="bg-indigo-100 text-indigo-800 dark:bg-indigo-900/70 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 text-[10px] py-0 px-1.5">
-                                Análisis Inteligente
-                              </Badge>
-                            </div>
-                            <p className="text-xs sm:text-sm font-medium text-zinc-900 dark:text-zinc-100 leading-relaxed">
-                              {dashboardData.recomendacion_ejecutiva}
-                            </p>
-                          </div>
+                  {/* =================================================================== */}
+                  {/* Tarjeta de Resumen y Balance Operativo (Colapsable por defecto)     */}
+                  {/* =================================================================== */}
+                  <Card className="border-indigo-200/80 dark:border-indigo-900/60 bg-gradient-to-r from-indigo-50/70 via-purple-50/40 to-blue-50/50 dark:from-indigo-950/40 dark:via-purple-950/20 dark:to-blue-950/30 shadow-xs rounded-xl p-4 sm:p-5 transition-all duration-200 overflow-hidden relative">
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      aria-expanded={isBalanceOperativoOpen}
+                      aria-controls="balance-operativo-content"
+                      onClick={() => setIsBalanceOperativoOpen((prev) => !prev)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setIsBalanceOperativoOpen((prev) => !prev);
+                        }
+                      }}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer select-none group focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-indigo-500/50 rounded-lg"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="size-9 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform shrink-0">
+                          <Sparkles className="size-4.5" />
                         </div>
-
-                        {/* Metadatos de Soporte */}
-                        <div className="flex flex-wrap md:flex-col items-start gap-1.5 shrink-0 text-[11px] font-mono">
-                          {dashboardData.tramo_mas_critico && (
-                            <span className="px-2 py-0.5 rounded-md bg-white/80 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200">
-                              Sector Crítico: <strong>{dashboardData.tramo_mas_critico.tramo_label}</strong>
-                            </span>
-                          )}
-                          {dashboardData.franja_horaria_mas_critica && (
-                            <span className="px-2 py-0.5 rounded-md bg-white/80 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200">
-                              Hora de Mayor Demanda: <strong>{dashboardData.franja_horaria_mas_critica}</strong>
-                            </span>
-                          )}
-                          {dashboardData.dia_mas_critico && (
-                            <span className="px-2 py-0.5 rounded-md bg-white/80 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200">
-                              Día Pico: <strong>{dashboardData.dia_mas_critico}</strong>
-                            </span>
-                          )}
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                              Resumen y Balance Operativo
+                            </h3>
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] font-normal py-0 px-1.5 h-4.5 bg-indigo-50/50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200/70 dark:border-indigo-800/60"
+                            >
+                              IA Asistencias
+                            </Badge>
+                            {!isBalanceOperativoOpen && diagnosticoData?.metricas_base && (
+                              <span className="hidden md:inline-flex text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
+                                • {diagnosticoData.metricas_base.total_asistencias ?? ((diagnosticoData.metricas_base.total_gruas || 0) + (diagnosticoData.metricas_base.total_ambulancias || 0))} atenciones
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                            Consolidado y alertas de las atenciones viales para:{" "}
+                            <span className="font-semibold text-zinc-700 dark:text-zinc-300">{dateRangeLabel}</span>
+                          </p>
                         </div>
                       </div>
-                    </Card>
-                  )}
+
+                      <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-center">
+                        {cargandoDiagnostico && (
+                          <div className="flex items-center gap-1.5 text-xs text-indigo-600 dark:text-indigo-400 font-medium shrink-0">
+                            <Loader2 className="size-3.5 animate-spin" />
+                            <span className="hidden sm:inline">Actualizando balance...</span>
+                          </div>
+                        )}
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-8 px-2.5 text-xs font-medium pointer-events-none gap-1.5 bg-white/80 dark:bg-zinc-900/80 border-indigo-200 dark:border-indigo-800 hover:bg-white dark:hover:bg-zinc-900 text-indigo-900 dark:text-indigo-200 shadow-2xs"
+                        >
+                          <span>{isBalanceOperativoOpen ? "Ocultar balance" : "Ver balance"}</span>
+                          <ChevronDown
+                            className={cn(
+                              "size-3.5 text-indigo-600 dark:text-indigo-400 transition-transform duration-300 ease-in-out",
+                              isBalanceOperativoOpen && "rotate-180"
+                            )}
+                          />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <AnimatePresence initial={false}>
+                      {isBalanceOperativoOpen && (
+                        <motion.div
+                          id="balance-operativo-content"
+                          key="balance-operativo-content"
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="pt-3.5 border-t border-indigo-100/80 dark:border-indigo-900/40 mt-3">
+                            {cargandoDiagnostico ? (
+                              <div className="space-y-3">
+                                <div className="flex items-center gap-2">
+                                  <Skeleton className="h-4 w-32 bg-indigo-200/50 dark:bg-indigo-900/40" />
+                                  <Skeleton className="h-4 w-full bg-indigo-100/50 dark:bg-indigo-950/40" />
+                                </div>
+                                <Skeleton className="h-3.5 w-11/12 bg-indigo-100/50 dark:bg-indigo-950/40" />
+                                <div className="flex items-center gap-2 pt-1">
+                                  <Skeleton className="h-4 w-36 bg-indigo-200/50 dark:bg-indigo-900/40" />
+                                  <Skeleton className="h-4 w-5/6 bg-indigo-100/50 dark:bg-indigo-950/40" />
+                                </div>
+                                <Skeleton className="h-3.5 w-4/5 bg-indigo-100/50 dark:bg-indigo-950/40" />
+                                <div className="flex items-center gap-2 pt-1">
+                                  <Skeleton className="h-4 w-40 bg-indigo-200/50 dark:bg-indigo-900/40" />
+                                  <Skeleton className="h-4 w-3/4 bg-indigo-100/50 dark:bg-indigo-950/40" />
+                                </div>
+                              </div>
+                            ) : diagnosticoData ? (
+                              <div className="space-y-3">
+                                <div className="text-xs sm:text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed whitespace-pre-line font-normal bg-white/70 dark:bg-zinc-900/70 p-3.5 rounded-lg border border-indigo-100 dark:border-indigo-950/60 shadow-2xs">
+                                  {diagnosticoData.resumen}
+                                </div>
+
+                                {/* Métricas base de soporte del periodo */}
+                                {diagnosticoData.metricas_base && (
+                                  <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] font-mono text-zinc-600 dark:text-zinc-400">
+                                    <span className="px-2 py-0.5 rounded-md bg-white/80 dark:bg-zinc-900/80 border border-zinc-200/80 dark:border-zinc-800">
+                                      Total Asistencias: <strong className="text-zinc-900 dark:text-zinc-100">{diagnosticoData.metricas_base.total_asistencias ?? ((diagnosticoData.metricas_base.total_gruas || 0) + (diagnosticoData.metricas_base.total_ambulancias || 0))}</strong>
+                                    </span>
+                                    <span className="px-2 py-0.5 rounded-md bg-white/80 dark:bg-zinc-900/80 border border-zinc-200/80 dark:border-zinc-800">
+                                      Grúas: <strong className="text-blue-600 dark:text-blue-400">{diagnosticoData.metricas_base.total_gruas ?? 0}</strong>
+                                    </span>
+                                    <span className="px-2 py-0.5 rounded-md bg-white/80 dark:bg-zinc-900/80 border border-zinc-200/80 dark:border-zinc-800">
+                                      Ambulancias: <strong className="text-emerald-600 dark:text-emerald-400">{diagnosticoData.metricas_base.total_ambulancias ?? 0}</strong>
+                                    </span>
+                                    {diagnosticoData.metricas_base.ratio_grua_ambulancia && (
+                                      <span className="px-2 py-0.5 rounded-md bg-white/80 dark:bg-zinc-900/80 border border-zinc-200/80 dark:border-zinc-800">
+                                        Ratio G/A: <strong className="text-zinc-900 dark:text-zinc-100">{diagnosticoData.metricas_base.ratio_grua_ambulancia}</strong>
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="p-3.5 rounded-lg bg-white/50 dark:bg-zinc-900/50 border border-zinc-200/80 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400">
+                                No constan registros de asistencia en la base de datos para sintetizar el balance en este periodo.
+                              </div>
+                            )}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </Card>
 
                   {/* Banner de Identidad de la Unidad Seleccionada (Ficha Técnica Rápida) */}
                   <AnimatePresence mode="wait">
@@ -1562,12 +1757,18 @@ export function DashboardView({ onLogout }: DashboardViewProps) {
                               </div>
                             </div>
                             <div className="text-xs text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1.5 mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800/80">
-                              <TrendingUp className="size-3.5" />
-                              <span>
-                                {dashboardData?.tasa_accidentabilidad_porcentaje
-                                  ? `${dashboardData.tasa_accidentabilidad_porcentaje}% tasa siniestralidad`
-                                  : "Atenciones médicas de emergencia"}
-                              </span>
+                              {isLoading ? (
+                                <Skeleton className="h-3.5 w-36" />
+                              ) : (
+                                <>
+                                  <TrendingUp className="size-3.5" />
+                                  <span>
+                                    {dashboardData?.tasa_accidentabilidad_porcentaje
+                                      ? `${dashboardData.tasa_accidentabilidad_porcentaje}% tasa siniestralidad`
+                                      : "Atenciones médicas de emergencia"}
+                                  </span>
+                                </>
+                              )}
                             </div>
                           </Card>
                         </motion.div>
@@ -1593,12 +1794,18 @@ export function DashboardView({ onLogout }: DashboardViewProps) {
                               </div>
                             </div>
                             <div className="text-xs text-blue-600 dark:text-blue-400 font-medium flex items-center gap-1.5 mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800/80">
-                              <TrendingUp className="size-3.5" />
-                              <span>
-                                {dashboardData?.tasa_asistencia_mecanica_porcentaje
-                                  ? `${dashboardData.tasa_asistencia_mecanica_porcentaje}% auxilios mecánicos`
-                                  : "Despejes y remolques de vía"}
-                              </span>
+                              {isLoading ? (
+                                <Skeleton className="h-3.5 w-36" />
+                              ) : (
+                                <>
+                                  <TrendingUp className="size-3.5" />
+                                  <span>
+                                    {dashboardData?.tasa_asistencia_mecanica_porcentaje
+                                      ? `${dashboardData.tasa_asistencia_mecanica_porcentaje}% auxilios mecánicos`
+                                      : "Despejes y remolques de vía"}
+                                  </span>
+                                </>
+                              )}
                             </div>
                           </Card>
                         </motion.div>
@@ -1624,8 +1831,14 @@ export function DashboardView({ onLogout }: DashboardViewProps) {
                               </div>
                             </div>
                             <div className="text-xs text-zinc-500 dark:text-zinc-400 font-medium flex items-center gap-1.5 mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800/80">
-                              <Clock className="size-3.5" />
-                              <span>Inspección continua 24/7</span>
+                              {isLoading ? (
+                                <Skeleton className="h-3.5 w-32" />
+                              ) : (
+                                <>
+                                  <Clock className="size-3.5" />
+                                  <span>Inspección continua 24/7</span>
+                                </>
+                              )}
                             </div>
                           </Card>
                         </motion.div>
@@ -1651,8 +1864,14 @@ export function DashboardView({ onLogout }: DashboardViewProps) {
                               </div>
                             </div>
                             <div className="text-xs text-purple-600 dark:text-purple-400 font-medium flex items-center gap-1.5 mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800/80">
-                              <Compass className="size-3.5" />
-                              <span className="truncate">Consolidado total de flota en corredor</span>
+                              {isLoading ? (
+                                <Skeleton className="h-3.5 w-36" />
+                              ) : (
+                                <>
+                                  <Compass className="size-3.5" />
+                                  <span className="truncate">Consolidado total de flota en corredor</span>
+                                </>
+                              )}
                             </div>
                           </Card>
                         </motion.div>
@@ -1672,12 +1891,22 @@ export function DashboardView({ onLogout }: DashboardViewProps) {
                                 </div>
                               </div>
                               <div className="font-semibold tracking-tight text-2xl text-zinc-900 dark:text-zinc-50 mt-2 font-sans">
-                                {ambMetrics.total}
+                                {isLoading ? (
+                                  <Skeleton className="h-8 w-20" />
+                                ) : (
+                                  ambMetrics.total
+                                )}
                               </div>
                             </div>
                             <div className="text-xs text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1.5 mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800/80">
-                              <Activity className="size-3.5" />
-                              <span>Total emergencias asistidas por esta unidad</span>
+                              {isLoading ? (
+                                <Skeleton className="h-3.5 w-32" />
+                              ) : (
+                                <>
+                                  <Activity className="size-3.5" />
+                                  <span>Total emergencias asistidas por esta unidad</span>
+                                </>
+                              )}
                             </div>
                           </Card>
                         </motion.div>
@@ -1695,12 +1924,22 @@ export function DashboardView({ onLogout }: DashboardViewProps) {
                                 </div>
                               </div>
                               <div className="font-semibold tracking-tight text-2xl text-zinc-900 dark:text-zinc-50 mt-2 font-sans">
-                                {ambMetrics.pacTotal}
+                                {isLoading ? (
+                                  <Skeleton className="h-8 w-20" />
+                                ) : (
+                                  ambMetrics.pacTotal
+                                )}
                               </div>
                             </div>
                             <div className="text-xs text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1.5 mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800/80">
-                              <Users className="size-3.5" />
-                              <span className="truncate">{ambMetrics.leves} Leves • {ambMetrics.graves} Graves • {ambMetrics.fatales} Fatales</span>
+                              {isLoading ? (
+                                <Skeleton className="h-3.5 w-36" />
+                              ) : (
+                                <>
+                                  <Users className="size-3.5" />
+                                  <span className="truncate">{ambMetrics.leves} Leves • {ambMetrics.graves} Graves • {ambMetrics.fatales} Fatales</span>
+                                </>
+                              )}
                             </div>
                           </Card>
                         </motion.div>
@@ -1718,12 +1957,22 @@ export function DashboardView({ onLogout }: DashboardViewProps) {
                                 </div>
                               </div>
                               <div className="font-semibold tracking-tight text-2xl text-zinc-900 dark:text-zinc-50 mt-2 font-sans">
-                                {ambMetrics.avgTime} min
+                                {isLoading ? (
+                                  <Skeleton className="h-8 w-24" />
+                                ) : (
+                                  `${ambMetrics.avgTime} min`
+                                )}
                               </div>
                             </div>
                             <div className="text-xs text-blue-600 dark:text-blue-400 font-medium flex items-center gap-1.5 mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800/80">
-                              <Compass className="size-3.5" />
-                              <span>Arribo a punto crítico de auxilio</span>
+                              {isLoading ? (
+                                <Skeleton className="h-3.5 w-32" />
+                              ) : (
+                                <>
+                                  <Compass className="size-3.5" />
+                                  <span>Arribo a punto crítico de auxilio</span>
+                                </>
+                              )}
                             </div>
                           </Card>
                         </motion.div>
@@ -1741,12 +1990,22 @@ export function DashboardView({ onLogout }: DashboardViewProps) {
                                 </div>
                               </div>
                               <div className="font-semibold tracking-tight text-2xl text-zinc-900 dark:text-zinc-50 mt-2 font-sans">
-                                {Number(ambMetrics.kmTotal).toLocaleString()} km
+                                {isLoading ? (
+                                  <Skeleton className="h-8 w-24" />
+                                ) : (
+                                  `${Number(ambMetrics.kmTotal).toLocaleString()} km`
+                                )}
                               </div>
                             </div>
                             <div className="text-xs text-purple-600 dark:text-purple-400 font-medium flex items-center gap-1.5 mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800/80">
-                              <Gauge className="size-3.5" />
-                              <span>Suma de odometría en despachos</span>
+                              {isLoading ? (
+                                <Skeleton className="h-3.5 w-36" />
+                              ) : (
+                                <>
+                                  <Gauge className="size-3.5" />
+                                  <span>Suma de odometría en despachos</span>
+                                </>
+                              )}
                             </div>
                           </Card>
                         </motion.div>
@@ -1766,12 +2025,22 @@ export function DashboardView({ onLogout }: DashboardViewProps) {
                                 </div>
                               </div>
                               <div className="font-semibold tracking-tight text-2xl text-zinc-900 dark:text-zinc-50 mt-2 font-sans">
-                                {gruaMetrics.total}
+                                {isLoading ? (
+                                  <Skeleton className="h-8 w-20" />
+                                ) : (
+                                  gruaMetrics.total
+                                )}
                               </div>
                             </div>
                             <div className="text-xs text-blue-600 dark:text-blue-400 font-medium flex items-center gap-1.5 mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800/80">
-                              <TrendingUp className="size-3.5" />
-                              <span>Despejes mecánicos y siniestros asistidos</span>
+                              {isLoading ? (
+                                <Skeleton className="h-3.5 w-32" />
+                              ) : (
+                                <>
+                                  <TrendingUp className="size-3.5" />
+                                  <span>Despejes mecánicos y siniestros asistidos</span>
+                                </>
+                              )}
                             </div>
                           </Card>
                         </motion.div>
@@ -1789,12 +2058,22 @@ export function DashboardView({ onLogout }: DashboardViewProps) {
                                 </div>
                               </div>
                               <div className="font-semibold tracking-tight text-2xl text-zinc-900 dark:text-zinc-50 mt-2 font-sans">
-                                {Number(gruaMetrics.towKm).toLocaleString()} km
+                                {isLoading ? (
+                                  <Skeleton className="h-8 w-24" />
+                                ) : (
+                                  `${Number(gruaMetrics.towKm).toLocaleString()} km`
+                                )}
                               </div>
                             </div>
                             <div className="text-xs text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1.5 mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800/80">
-                              <Route className="size-3.5" />
-                              <span>Recorrido efectivo con carga en plataforma</span>
+                              {isLoading ? (
+                                <Skeleton className="h-3.5 w-36" />
+                              ) : (
+                                <>
+                                  <Route className="size-3.5" />
+                                  <span>Recorrido efectivo con carga en plataforma</span>
+                                </>
+                              )}
                             </div>
                           </Card>
                         </motion.div>
@@ -1812,12 +2091,22 @@ export function DashboardView({ onLogout }: DashboardViewProps) {
                                 </div>
                               </div>
                               <div className="font-semibold tracking-tight text-lg sm:text-xl text-zinc-900 dark:text-zinc-50 mt-2 font-sans truncate" title={gruaMetrics.topCause}>
-                                {gruaMetrics.topCause}
+                                {isLoading ? (
+                                  <Skeleton className="h-7 w-28" />
+                                ) : (
+                                  gruaMetrics.topCause
+                                )}
                               </div>
                             </div>
                             <div className="text-xs text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1.5 mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800/80">
-                              <Wrench className="size-3.5" />
-                              <span>{gruaMetrics.topCausePercent}% de sus remolques</span>
+                              {isLoading ? (
+                                <Skeleton className="h-3.5 w-32" />
+                              ) : (
+                                <>
+                                  <Wrench className="size-3.5" />
+                                  <span>{gruaMetrics.topCausePercent}% de sus remolques</span>
+                                </>
+                              )}
                             </div>
                           </Card>
                         </motion.div>
@@ -1835,12 +2124,22 @@ export function DashboardView({ onLogout }: DashboardViewProps) {
                                 </div>
                               </div>
                               <div className="font-semibold tracking-tight text-2xl text-zinc-900 dark:text-zinc-50 mt-2 font-sans">
-                                {Number(gruaMetrics.totalKm).toLocaleString()} km
+                                {isLoading ? (
+                                  <Skeleton className="h-8 w-24" />
+                                ) : (
+                                  `${Number(gruaMetrics.totalKm).toLocaleString()} km`
+                                )}
                               </div>
                             </div>
                             <div className="text-xs text-purple-600 dark:text-purple-400 font-medium flex items-center gap-1.5 mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800/80">
-                              <Compass className="size-3.5" />
-                              <span>Kilometraje acumulado por la unidad</span>
+                              {isLoading ? (
+                                <Skeleton className="h-3.5 w-36" />
+                              ) : (
+                                <>
+                                  <Compass className="size-3.5" />
+                                  <span>Kilometraje acumulado por la unidad</span>
+                                </>
+                              )}
                             </div>
                           </Card>
                         </motion.div>
@@ -1860,12 +2159,22 @@ export function DashboardView({ onLogout }: DashboardViewProps) {
                                 </div>
                               </div>
                               <div className="font-semibold tracking-tight text-2xl text-zinc-900 dark:text-zinc-50 mt-2 font-sans">
-                                {patrullaMetrics.total} rondas
+                                {isLoading ? (
+                                  <Skeleton className="h-8 w-24" />
+                                ) : (
+                                  `${patrullaMetrics.total} rondas`
+                                )}
                               </div>
                             </div>
                             <div className="text-xs text-cyan-600 dark:text-cyan-400 font-medium flex items-center gap-1.5 mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800/80">
-                              <Activity className="size-3.5" />
-                              <span>Circuitos de inspección en corredor</span>
+                              {isLoading ? (
+                                <Skeleton className="h-3.5 w-32" />
+                              ) : (
+                                <>
+                                  <Activity className="size-3.5" />
+                                  <span>Circuitos de inspección en corredor</span>
+                                </>
+                              )}
                             </div>
                           </Card>
                         </motion.div>
@@ -1883,12 +2192,22 @@ export function DashboardView({ onLogout }: DashboardViewProps) {
                                 </div>
                               </div>
                               <div className="font-semibold tracking-tight text-2xl text-zinc-900 dark:text-zinc-50 mt-2 font-sans">
-                                {Number(patrullaMetrics.totalKm).toLocaleString()} km
+                                {isLoading ? (
+                                  <Skeleton className="h-8 w-24" />
+                                ) : (
+                                  `${Number(patrullaMetrics.totalKm).toLocaleString()} km`
+                                )}
                               </div>
                             </div>
                             <div className="text-xs text-indigo-600 dark:text-indigo-400 font-medium flex items-center gap-1.5 mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800/80">
-                              <Gauge className="size-3.5" />
-                              <span>Recorrido de control y vigilancia vial</span>
+                              {isLoading ? (
+                                <Skeleton className="h-3.5 w-36" />
+                              ) : (
+                                <>
+                                  <Gauge className="size-3.5" />
+                                  <span>Recorrido de control y vigilancia vial</span>
+                                </>
+                              )}
                             </div>
                           </Card>
                         </motion.div>
@@ -1906,12 +2225,22 @@ export function DashboardView({ onLogout }: DashboardViewProps) {
                                 </div>
                               </div>
                               <div className="font-semibold tracking-tight text-2xl text-zinc-900 dark:text-zinc-50 mt-2 font-sans">
-                                {patrullaMetrics.novPercent}%
+                                {isLoading ? (
+                                  <Skeleton className="h-8 w-20" />
+                                ) : (
+                                  `${patrullaMetrics.novPercent}%`
+                                )}
                               </div>
                             </div>
                             <div className="text-xs text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1.5 mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800/80">
-                              <ShieldAlert className="size-3.5" />
-                              <span>{patrullaMetrics.withNov} rondas con alertas en calzada</span>
+                              {isLoading ? (
+                                <Skeleton className="h-3.5 w-36" />
+                              ) : (
+                                <>
+                                  <ShieldAlert className="size-3.5" />
+                                  <span>{patrullaMetrics.withNov} rondas con alertas en calzada</span>
+                                </>
+                              )}
                             </div>
                           </Card>
                         </motion.div>
@@ -1929,12 +2258,22 @@ export function DashboardView({ onLogout }: DashboardViewProps) {
                                 </div>
                               </div>
                               <div className="font-semibold tracking-tight text-base sm:text-lg text-zinc-900 dark:text-zinc-50 mt-2 font-sans truncate" title={patrullaMetrics.topTurno}>
-                                {patrullaMetrics.topTurno}
+                                {isLoading ? (
+                                  <Skeleton className="h-7 w-32" />
+                                ) : (
+                                  patrullaMetrics.topTurno
+                                )}
                               </div>
                             </div>
                             <div className="text-xs text-blue-600 dark:text-blue-400 font-medium flex items-center gap-1.5 mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800/80">
-                              <Compass className="size-3.5" />
-                              <span>Franja horaria con mayor patrullaje</span>
+                              {isLoading ? (
+                                <Skeleton className="h-3.5 w-36" />
+                              ) : (
+                                <>
+                                  <Compass className="size-3.5" />
+                                  <span>Franja horaria con mayor patrullaje</span>
+                                </>
+                              )}
                             </div>
                           </Card>
                         </motion.div>
@@ -2320,22 +2659,34 @@ export function DashboardView({ onLogout }: DashboardViewProps) {
                           <div className="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-950/50 border border-zinc-200/80 dark:border-zinc-800">
                             <span className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">Leves</span>
                             <div className="text-xl font-bold font-mono text-zinc-900 dark:text-zinc-100 mt-0.5">
-                              {ambulancias.filter((a) => a.severidad === "LEVE").length +
-                                gruas.filter((g) => g.severidad === "LEVE").length || 470}
+                              {isLoading ? (
+                                <Skeleton className="h-7 w-12 mx-auto" />
+                              ) : (
+                                ambulancias.filter((a) => a.severidad === "LEVE").length +
+                                  gruas.filter((g) => g.severidad === "LEVE").length || 470
+                              )}
                             </div>
                           </div>
                           <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400">
                             <span className="text-xs font-medium">Graves</span>
                             <div className="text-xl font-bold font-mono mt-0.5">
-                              {ambulancias.filter((a) => a.severidad === "GRAVE").length +
-                                gruas.filter((g) => g.severidad === "GRAVE").length || 21}
+                              {isLoading ? (
+                                <Skeleton className="h-7 w-12 mx-auto" />
+                              ) : (
+                                ambulancias.filter((a) => a.severidad === "GRAVE").length +
+                                  gruas.filter((g) => g.severidad === "GRAVE").length || 21
+                              )}
                             </div>
                           </div>
                           <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-700 dark:text-red-400">
                             <span className="text-xs font-medium">Fatales</span>
                             <div className="text-xl font-bold font-mono mt-0.5">
-                              {ambulancias.filter((a) => a.severidad === "FATAL").length +
-                                gruas.filter((g) => g.severidad === "FATAL").length || 8}
+                              {isLoading ? (
+                                <Skeleton className="h-7 w-12 mx-auto" />
+                              ) : (
+                                ambulancias.filter((a) => a.severidad === "FATAL").length +
+                                  gruas.filter((g) => g.severidad === "FATAL").length || 8
+                              )}
                             </div>
                           </div>
                         </div>
@@ -3104,19 +3455,31 @@ export function DashboardView({ onLogout }: DashboardViewProps) {
                           <div className="flex justify-between font-medium">
                             <span className="text-zinc-600 dark:text-zinc-400">Registros Totales del Sistema:</span>
                             <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100">
-                              {dashboardData?.total_asistencias_historicas || ambulancias.length + gruas.length} registros
+                              {isLoading ? (
+                                <Skeleton className="h-4 w-24" />
+                              ) : (
+                                `${dashboardData?.total_asistencias_historicas || ambulancias.length + gruas.length} registros`
+                              )}
                             </span>
                           </div>
                           <div className="flex justify-between font-medium">
                             <span className="text-zinc-600 dark:text-zinc-400">Certificados y Sincronizados:</span>
                             <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                              {(dashboardData?.total_asistencias_historicas || 500) - pendingCount} registros
+                              {isLoading ? (
+                                <Skeleton className="h-4 w-24" />
+                              ) : (
+                                `${(dashboardData?.total_asistencias_historicas || 500) - pendingCount} registros`
+                              )}
                             </span>
                           </div>
                           <div className="flex justify-between font-medium">
                             <span className="text-zinc-600 dark:text-zinc-400">Pendientes de Firma/Envío:</span>
                             <span className="font-mono font-bold text-amber-600 dark:text-amber-400">
-                              {pendingCount} registros
+                              {isLoading ? (
+                                <Skeleton className="h-4 w-20" />
+                              ) : (
+                                `${pendingCount} registros`
+                              )}
                             </span>
                           </div>
                         </div>
@@ -3277,6 +3640,200 @@ export function DashboardView({ onLogout }: DashboardViewProps) {
         personalMap={personalMap}
         vehiculosMap={vehiculosMap}
       />
+
+      {/* ========================================================================= */}
+      {/* Modal / Dialog de Consultas Operativas Rápidas                           */}
+      {/* ========================================================================= */}
+      <Dialog open={isAiAssistantOpen} onOpenChange={setIsAiAssistantOpen}>
+        <DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-2xl">
+          <DialogHeader className="p-4 pb-3 border-b border-zinc-100 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-900/50">
+            <div className="flex items-center gap-2.5">
+              <div className="size-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <Search className="size-4" />
+              </div>
+              <div>
+                <DialogTitle className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                  Asistente de Consultas Operativas
+                </DialogTitle>
+                <DialogDescription className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                  Busca información de turnos, asistencias viales y unidades móviles registradas.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {/* Formulario de Consulta */}
+          <div className="p-4 space-y-4">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleConsultarAI();
+              }}
+              className="flex items-center gap-2"
+            >
+              <div className="relative flex-1">
+                <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
+                <Input
+                  autoFocus
+                  placeholder="Ej: ¿Cuántas ambulancias atendieron hoy? o Buscar unidad AMB-01"
+                  value={aiQuery}
+                  onChange={(e) => setAiQuery(e.target.value)}
+                  className="pl-9 pr-4 h-10 text-xs bg-zinc-50/50 dark:bg-zinc-900/60 border-zinc-200 dark:border-zinc-800 focus-visible:ring-indigo-500"
+                />
+              </div>
+              <motion.div
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.97 }}
+                transition={{ type: "spring", stiffness: 400, damping: 25 }}
+              >
+                <Button
+                  type="submit"
+                  disabled={aiLoading || !aiQuery.trim()}
+                  className="h-10 px-4 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs gap-1.5 cursor-pointer shrink-0"
+                >
+                  {aiLoading ? (
+                    <>
+                      <Loader2 className="size-3.5 animate-spin" />
+                      <span>Buscando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="size-3.5" />
+                      <span>Buscar</span>
+                    </>
+                  )}
+                </Button>
+              </motion.div>
+            </form>
+
+            {/* Chips de Sugerencias Rápidas */}
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-medium text-zinc-400">Consultas frecuentes:</span>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  "¿Cuántas ambulancias atendieron hoy?",
+                  "¿Cuántas grúas se despacharon en el último mes?",
+                  "Buscar unidad AMB-01",
+                  "Buscar grúa GRU-01",
+                  "¿Cuáles son los tramos con más emergencias?",
+                ].map((sugerencia) => (
+                  <motion.button
+                    key={sugerencia}
+                    type="button"
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.97 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                    onClick={() => handleConsultarAI(sugerencia)}
+                    disabled={aiLoading}
+                    className="text-[11px] px-2.5 py-1 rounded-md bg-zinc-100 hover:bg-zinc-200/80 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200/60 dark:border-zinc-800 transition-colors cursor-pointer text-left"
+                  >
+                    {sugerencia}
+                  </motion.button>
+                ))}
+              </div>
+            </div>
+
+            {/* Estado de Carga */}
+            {aiLoading && (
+              <div className="p-6 rounded-xl border border-indigo-100 dark:border-indigo-950 bg-indigo-50/30 dark:bg-indigo-950/20 flex flex-col items-center justify-center gap-2 text-center">
+                <Loader2 className="size-6 text-indigo-600 animate-spin" />
+                <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                  Consultando registros y calculando información...
+                </p>
+                <p className="text-[11px] text-zinc-400">
+                  Verificando atenciones en el sistema
+                </p>
+              </div>
+            )}
+
+            {/* Resultado de la Consulta */}
+            {!aiLoading && aiResponse && (
+              <div className="space-y-3 pt-2">
+                <div className="p-3.5 rounded-xl border border-indigo-200/70 dark:border-indigo-900/60 bg-gradient-to-br from-indigo-50/40 via-white to-sky-50/20 dark:from-indigo-950/30 dark:via-zinc-900/90 dark:to-sky-950/10 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-indigo-900 dark:text-indigo-200 flex items-center gap-1.5">
+                      <Sparkles className="size-3.5 text-indigo-600 dark:text-indigo-400" />
+                      Resultado:
+                    </span>
+                    <Badge variant="outline" className="text-[10px] font-mono border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 py-0">
+                      Datos Verificados
+                    </Badge>
+                  </div>
+                  <p className="text-xs sm:text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed whitespace-pre-line">
+                    {aiResponse.respuesta}
+                  </p>
+                </div>
+
+                {/* Acceso directo a Registros / Datos Fuente */}
+                {aiResponse.datos_fuente && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Database className="size-3.5 text-zinc-400" />
+                      <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                        Registros de Datos Fuente ({Array.isArray(aiResponse.datos_fuente) ? aiResponse.datos_fuente.length : 1})
+                      </span>
+                    </div>
+
+                    {Array.isArray(aiResponse.datos_fuente) && aiResponse.datos_fuente.length > 0 ? (
+                      <div className="max-h-48 overflow-y-auto rounded-lg border border-zinc-200 dark:border-zinc-800 text-xs">
+                        <Table>
+                          <TableHeader className="bg-zinc-50 dark:bg-zinc-900 sticky top-0">
+                            <TableRow>
+                              <TableHead className="h-8 text-[11px]">Identificador / Código</TableHead>
+                              <TableHead className="h-8 text-[11px]">Detalle / Ubicación</TableHead>
+                              <TableHead className="h-8 text-[11px]">Tipo / Rol</TableHead>
+                              <TableHead className="h-8 text-[11px] text-right">Acción</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {aiResponse.datos_fuente.slice(0, 10).map((item: any, idx: number) => {
+                              const codigo = item.codigo_formulario || item.codigo_interno || item.placa || item.id_asistencia || `Reg #${idx + 1}`;
+                              const detalle = item.ubicacion_referencia || item.sector_referencia || item.descripcion || item.nombre_paciente || "Sin detalle";
+                              const tipo = item.tipo_servicio || item.tipo_flota || item.tipo_asistencia || "Registro";
+                              return (
+                                <TableRow key={idx} className="hover:bg-zinc-50/60 dark:hover:bg-zinc-900/60">
+                                  <TableCell className="font-mono font-medium py-2 text-[11px]">{codigo}</TableCell>
+                                  <TableCell className="py-2 text-[11px] text-zinc-600 dark:text-zinc-400 max-w-xs truncate">{detalle}</TableCell>
+                                  <TableCell className="py-2 text-[11px]">
+                                    <Badge variant="outline" className="text-[10px] py-0 font-normal">
+                                      {tipo}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="py-2 text-[11px] text-right">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => {
+                                        setIsAiAssistantOpen(false);
+                                        if (String(tipo).toLowerCase().includes("ambulancia")) {
+                                          setActiveTab("ambulancias");
+                                        } else if (String(tipo).toLowerCase().includes("grua")) {
+                                          setActiveTab("gruas");
+                                        }
+                                      }}
+                                      className="h-6 px-2 text-[10px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-800"
+                                    >
+                                      Ver en tabla
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    ) : (
+                      <div className="p-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-900 border border-zinc-200/70 dark:border-zinc-800 font-mono text-[11px] text-zinc-600 dark:text-zinc-400 overflow-x-auto max-h-32">
+                        <pre>{JSON.stringify(aiResponse.datos_fuente, null, 2)}</pre>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </SidebarProvider>
   );
 }

@@ -83,9 +83,14 @@ async function handleResponse(response: Response, endpoint: string, url: string)
   if (!response.ok) {
     let errorData: any;
     try {
-      errorData = await response.json();
+      const text = await response.text();
+      try {
+        errorData = JSON.parse(text);
+      } catch {
+        errorData = text;
+      }
     } catch {
-      errorData = await response.text();
+      errorData = null;
     }
     throw new ApiError(
       `Error en ${endpoint}: ${response.status} ${response.statusText}`,
@@ -146,7 +151,12 @@ export const apiClient = {
     });
 
     await handleResponse(response, `GET ${endpoint}`, url);
-    return response.json() as Promise<T>;
+
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      return response.json() as Promise<T>;
+    }
+    return {} as T;
   },
 
   /**
@@ -192,7 +202,12 @@ export const apiClient = {
     });
 
     await handleResponse(response, `PUT ${endpoint}`, url);
-    return response.json() as Promise<T>;
+
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      return response.json() as Promise<T>;
+    }
+    return {} as T;
   },
 
   /**

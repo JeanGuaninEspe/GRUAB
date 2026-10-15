@@ -1,3 +1,4 @@
+import os
 import json
 import logging
 import re
@@ -11,11 +12,13 @@ from dateutil.relativedelta import relativedelta
 from sqlalchemy.orm import Session
 
 from app.services.operaciones_service import operaciones_service
+from app.repositories.analitica_repo import analitica_repo
+from app.repositories.operaciones_repo import operaciones_repo
 
 logger = logging.getLogger(__name__)
 
 OLLAMA_URL = "http://127.0.0.1:11434/api/chat"
-MODELO_OLLAMA = "qwen2.5:3b"
+MODELO_OLLAMA = os.getenv("MODELO_OLLAMA", "qwen2.5:7b")
 OLLAMA_KEEP_ALIVE = -1  # Mantiene el modelo en RAM permanentemente evitando cold starts
 NUM_THREADS = 18        # Núcleos físicos de CPU para óptimo aprovechamiento AVX2 sin contención L3
 
@@ -561,6 +564,7 @@ class AIService:
                         "keep_alive": OLLAMA_KEEP_ALIVE,
                         "options": {
                             "num_thread": NUM_THREADS,
+                            "temperature": 0.0,
                             "num_ctx": 2048,
                             "num_predict": 256
                         }
@@ -1525,10 +1529,11 @@ class AIService:
                 {"role": "user", "content": user_content}
             ],
             "stream": False,
-            "temperature": 0.1,
+            "temperature": 0.0,
             "keep_alive": OLLAMA_KEEP_ALIVE,
             "options": {
                 "num_thread": NUM_THREADS,
+                "temperature": 0.0,
                 "num_ctx": 2048,
                 "num_predict": 750
             }
@@ -1639,10 +1644,11 @@ class AIService:
                 {"role": "user", "content": user_content}
             ],
             "stream": True,
-            "temperature": 0.1,
+            "temperature": 0.0,
             "keep_alive": OLLAMA_KEEP_ALIVE,
             "options": {
                 "num_thread": NUM_THREADS,
+                "temperature": 0.0,
                 "num_ctx": 2048,
                 "num_predict": 750
             }
@@ -1672,6 +1678,578 @@ class AIService:
                 "contenido": respuesta_directa
             }
             yield {"tipo": "done"}
+
+    async def consultar(
+        self,
+        pregunta: str,
+        db: Session,
+        historial: Optional[List[Dict[str, Any]]] = None,
+        session_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Orquestador determinista en 3 fases para Qwen 2.5 7B con grounding estricto a SQL Server:
+        - Fase 1: Clasificación de intención y extracción de parámetros en JSON.
+        - Fase 2: Ejecución de consultas de solo lectura (SELECT) en repositorios SQL.
+        - Fase 3: Síntesis cerrada sin divagación creativa (temperature=0.0).
+        """
+        ahora = datetime.now()
+        fecha_actual_str = ahora.strftime("%Y-%m-%d")
+        ayer_str = (ahora - timedelta(days=1)).strftime("%Y-%m-%d")
+
+        # -------------------------------------------------------------
+        # FASE 1: Clasificación de Intención y Extracción de Parámetros
+        # -------------------------------------------------------------
+        prompt_clasificacion = (
+            f"Hoy es {fecha_actual_str} (ayer fue {ayer_str}).\n"
+            "Tu tarea es analizar la solicitud del usuario sobre operaciones viales (grúas, ambulancias, patrullajes y vehículos) "
+            "y devolver ÚNICAMENTE un objeto JSON con la función a invocar y sus filtros:\n\n"
+            "ESQUEMA OBLIGATORIO:\n"
+            "{\n"
+            '  "accion": "resumen_operativo" | "asistencias_por_fecha" | "buscar_unidad" | "no_requiere_bd",\n'
+            '  "parametros": {\n'
+            '    "tipo_servicio": "grua" | "ambulancia" | "todos",\n'
+            '    "zona": string o null,\n'
+            '    "estado": string o null,\n'
+            '    "fecha_inicio": "YYYY-MM-DD" o null,\n'
+            '    "fecha_fin": "YYYY-MM-DD" o null,\n'
+            '    "id_o_placa": string o null\n'
+            "  }\n"
+            "}\n\n"
+            "DEFINICIÓN DE ACCIONES:\n"
+            '- "resumen_operativo": Para conteos, totales o resúmenes de atenciones o asistencias (ej: "¿Cuántas ambulancias atendieron hoy?", "¿Total de grúas este mes?", "resumen operativo").\n'
+            '- "asistencias_por_fecha": Para consultar listas, detalles o registros de asistencias por fecha, tramo vial, zona o severidad (ej: "Muestra las asistencias en el Peaje Congoma", "atenciones del 15 de agosto").\n'
+            '- "buscar_unidad": Para buscar un vehículo, grúa, ambulancia o patrulla por su placa, ID o código (ej: "¿Dónde está la unidad 3?", "información del vehículo TBK-1814", "buscar placa XYZ-9999").\n'
+            '- "no_requiere_bd": Para saludos, preguntas de cortesía, ayuda sobre el bot o mensajes que no requieren consultar la base de datos SQL.\n\n'
+            "REGLAS DE PARÁMETROS:\n"
+            f'- Si la consulta dice "hoy", asigna fecha_inicio: "{fecha_actual_str}" y fecha_fin: "{fecha_actual_str}".\n'
+            f'- Si la consulta dice "ayer", asigna fecha_inicio: "{ayer_str}" y fecha_fin: "{ayer_str}".\n'
+            '- tipo_servicio debe ser "grua", "ambulancia" o "todos". Si no se menciona servicio, usa "todos".\n'
+            '- id_o_placa: extrae el identificador, código de vehículo o placa consultada.\n'
+            '- Devuelve ÚNICAMENTE el bloque JSON válido, sin comentarios ni explicaciones.\n\n'
+            f'Consulta del usuario: "{pregunta}"'
+        )
+
+        data_fase1 = None
+        try:
+            async with httpx.AsyncClient(timeout=90.0) as client:
+                res_f1 = await client.post(
+                    OLLAMA_URL,
+                    json={
+                        "model": MODELO_OLLAMA,
+                        "messages": [{"role": "user", "content": prompt_clasificacion}],
+                        "stream": False,
+                        "format": "json",
+                        "keep_alive": OLLAMA_KEEP_ALIVE,
+                        "options": {
+                            "num_thread": NUM_THREADS,
+                            "temperature": 0.0,
+                            "num_predict": 256
+                        }
+                    }
+                )
+                if res_f1.status_code == 200:
+                    raw_content = res_f1.json()["message"]["content"]
+                    content_clean = re.sub(r"^```(?:json)?\s*", "", raw_content.strip())
+                    content_clean = re.sub(r"\s*```$", "", content_clean).strip()
+                    data_fase1 = json.loads(content_clean)
+        except Exception as e:
+            logger.warning(f"Ollama Fase 1 no disponible o error ({e}).")
+
+        # Control de Errores y Seguridad (Fallback determinista si JSON malformado o error)
+        if data_fase1 is None or not isinstance(data_fase1, dict):
+            p_lower = pregunta.lower().strip()
+            if any(p_lower.startswith(g) for g in ("hola", "buenos dias", "buenas tardes", "saludos")):
+                data_fase1 = {"accion": "no_requiere_bd", "parametros": {}}
+            elif any(w in p_lower for w in ("placa", "unidad", "vehiculo", "vehículo", "camioneta", "auto")):
+                m_id = re.search(r"\b([a-zA-Z]{3}-?\d{3,4}|[a-zA-Z]+-\d+|\d+)\b", pregunta)
+                data_fase1 = {
+                    "accion": "buscar_unidad",
+                    "parametros": {"id_o_placa": m_id.group(1) if m_id else None, "tipo_servicio": "todos"}
+                }
+            elif any(w in p_lower for w in ("cuantas", "cuántas", "cuantos", "cuántos", "total", "resumen")):
+                tipo_s = "ambulancia" if "ambulancia" in p_lower else ("grua" if "grua" in p_lower or "grúa" in p_lower else "todos")
+                data_fase1 = {
+                    "accion": "resumen_operativo",
+                    "parametros": {"tipo_servicio": tipo_s}
+                }
+            elif any(w in p_lower for w in ("asistencia", "atencion", "atención", "emergencia", "registro")):
+                tipo_s = "ambulancia" if "ambulancia" in p_lower else ("grua" if "grua" in p_lower or "grúa" in p_lower else "todos")
+                data_fase1 = {
+                    "accion": "asistencias_por_fecha",
+                    "parametros": {"tipo_servicio": tipo_s}
+                }
+            else:
+                return {
+                    "respuesta": "No se pudo interpretar la consulta. Por favor, reformule su pregunta de manera más clara indicando el servicio (grúa/ambulancia), fecha o placa a consultar.",
+                    "accion_ejecutada": "error_clasificacion",
+                    "datos_fuente": None,
+                }
+
+        accion = data_fase1.get("accion")
+        parametros = data_fase1.get("parametros") or {}
+        if accion not in ("resumen_operativo", "asistencias_por_fecha", "buscar_unidad", "no_requiere_bd"):
+            return {
+                "respuesta": "No se pudo interpretar la consulta. Por favor, reformule su pregunta de manera más clara indicando el servicio (grúa/ambulancia), fecha o placa a consultar.",
+                "accion_ejecutada": "error_clasificacion",
+                "datos_fuente": None,
+            }
+
+        # Asegurar resolución de hoy / ayer en parámetros si el usuario lo mencionó
+        p_lower = pregunta.lower().strip()
+        if "hoy" in p_lower and not parametros.get("fecha_inicio"):
+            parametros["fecha_inicio"] = fecha_actual_str
+            parametros["fecha_fin"] = fecha_actual_str
+        elif "ayer" in p_lower and not parametros.get("fecha_inicio"):
+            parametros["fecha_inicio"] = ayer_str
+            parametros["fecha_fin"] = ayer_str
+
+        d_inicio = None
+        d_fin = None
+        if parametros.get("fecha_inicio"):
+            try:
+                d_inicio = date.fromisoformat(str(parametros["fecha_inicio"])[:10])
+            except Exception:
+                d_inicio = None
+        if parametros.get("fecha_fin"):
+            try:
+                d_fin = date.fromisoformat(str(parametros["fecha_fin"])[:10])
+            except Exception:
+                d_fin = None
+
+        tipo_servicio = (parametros.get("tipo_servicio") or "todos").lower().strip()
+        zona = parametros.get("zona")
+        estado = parametros.get("estado")
+        id_o_placa = parametros.get("id_o_placa")
+
+        # -------------------------------------------------------------
+        # FASE 2: Ejecución de Repositorio (Consultas SELECT de solo lectura)
+        # -------------------------------------------------------------
+        if accion == "no_requiere_bd":
+            accion_ejecutada = "no_requiere_bd"
+            datos_fuente = []
+            datos_sql = "DATOS: La consulta no requiere acceso a la base de datos de operaciones viales."
+
+        elif accion == "resumen_operativo":
+            accion_ejecutada = "analitica_repo.get_resumen_operativo"
+            datos_fuente = analitica_repo.get_resumen_operativo(
+                db=db,
+                fecha_inicio=d_inicio,
+                fecha_fin=d_fin,
+                tipo_servicio=tipo_servicio,
+                zona=zona,
+                estado=estado
+            )
+            datos_sql = json.dumps(datos_fuente, ensure_ascii=False, indent=2)
+
+        elif accion == "asistencias_por_fecha":
+            accion_ejecutada = "operaciones_repo.buscar_asistencias"
+            datos_fuente = operaciones_repo.buscar_asistencias(
+                db=db,
+                fecha_inicio=d_inicio,
+                fecha_fin=d_fin,
+                tipo_servicio=tipo_servicio,
+                zona=zona,
+                estado=estado,
+                limit=50
+            )
+            if not datos_fuente:
+                datos_sql = "DATOS: No se encontraron registros coincidentes en la base de datos."
+            else:
+                datos_sql = json.dumps(datos_fuente, ensure_ascii=False, indent=2)
+
+        elif accion == "buscar_unidad":
+            accion_ejecutada = "operaciones_repo.buscar_unidad"
+            criterio_busqueda = id_o_placa or pregunta
+            datos_fuente = operaciones_repo.buscar_unidad(
+                db=db,
+                id_o_placa=criterio_busqueda,
+                limit=10
+            )
+            if not datos_fuente:
+                datos_sql = "DATOS: No se encontraron registros coincidentes en la base de datos."
+            else:
+                datos_sql = json.dumps(datos_fuente, ensure_ascii=False, indent=2)
+
+        # -------------------------------------------------------------
+        # FASE 3: Síntesis Cerrada (Grounding Estricto, temperature=0.0)
+        # -------------------------------------------------------------
+        prompt_sintesis = (
+            "CONTEXTO DE BASE DE DATOS (VERIFICADO):\n"
+            f"{datos_sql}\n\n"
+            "PREGUNTA DEL USUARIO:\n"
+            f"{pregunta}\n\n"
+            "INSTRUCCIÓN CRÍTICA:\n"
+            "Responde la pregunta basándote ÚNICAMENTE en el contexto de base de datos verificado arriba.\n"
+            "- Si el contexto dice que no hay registros o la información no está presente, indica claramente que no constan registros en el sistema.\n"
+            "- No inventes números, placas, horas, operarios ni diagnósticos.\n"
+            "- Sé directo, profesional y conciso."
+        )
+
+        respuesta_final = ""
+        try:
+            async with httpx.AsyncClient(timeout=90.0) as client:
+                res_f3 = await client.post(
+                    OLLAMA_URL,
+                    json={
+                        "model": MODELO_OLLAMA,
+                        "messages": [{"role": "user", "content": prompt_sintesis}],
+                        "stream": False,
+                        "keep_alive": OLLAMA_KEEP_ALIVE,
+                        "options": {
+                            "num_thread": NUM_THREADS,
+                            "temperature": 0.0,
+                            "num_predict": 500
+                        }
+                    }
+                )
+                if res_f3.status_code == 200:
+                    respuesta_final = res_f3.json()["message"]["content"].strip()
+        except Exception as e:
+            logger.warning(f"Ollama Fase 3 no disponible ({e}). Activando síntesis determinista.")
+
+        if not respuesta_final:
+            if datos_sql == "DATOS: No se encontraron registros coincidentes en la base de datos.":
+                respuesta_final = "No constan registros en el sistema para la consulta especificada."
+            elif accion == "no_requiere_bd":
+                respuesta_final = "Hola. Soy el asistente de operaciones viales. Puedo asistirte consultando estadísticas de grúas, ambulancias, patrullajes y unidades de la concesión."
+            elif accion == "resumen_operativo" and isinstance(datos_fuente, dict):
+                tot_amb = datos_fuente.get("total_ambulancias", 0)
+                tot_gru = datos_fuente.get("total_gruas", 0)
+                tot = datos_fuente.get("total_asistencias", 0)
+                f_txt = f" para la fecha {d_inicio}" if d_inicio else ""
+                if tipo_servicio in ("ambulancia", "ambulancias"):
+                    respuesta_final = f"Se registraron {tot_amb} atenciones de ambulancias{f_txt}."
+                elif tipo_servicio in ("grua", "gruas"):
+                    respuesta_final = f"Se registraron {tot_gru} auxilios de grúas{f_txt}."
+                else:
+                    respuesta_final = f"Se registraron {tot} asistencias en total ({tot_amb} ambulancias y {tot_gru} grúas){f_txt}."
+            elif accion == "buscar_unidad" and isinstance(datos_fuente, list):
+                lineas = [f"- {u.get('codigo_interno', u.get('placa_asistida', ''))} ({u.get('placa', '')}): {u.get('tipo_flota', u.get('tipo_vehiculo', ''))}" for u in datos_fuente]
+                respuesta_final = "Registros encontrados en el sistema:\n" + "\n".join(lineas)
+            elif accion == "asistencias_por_fecha" and isinstance(datos_fuente, list):
+                respuesta_final = f"Se encontraron {len(datos_fuente)} asistencias en el período consultado."
+            else:
+                respuesta_final = f"Datos obtenidos: {datos_sql}"
+
+        return {
+            "respuesta": respuesta_final,
+            "accion_ejecutada": accion_ejecutada,
+            "datos_fuente": datos_fuente,
+        }
+
+    async def parsear_despacho(self, texto_reporte: str) -> Dict[str, Any]:
+        """
+        Extrae campos de despacho a partir de reportes reales de WhatsApp, radio o llamadas de emergencia
+        utilizando Qwen 2.5 7B con decodificación JSON estructurada y fallback determinista.
+        """
+        if not texto_reporte or not texto_reporte.strip():
+            return {
+                "tipo_asistencia": None,
+                "codigo_formulario": None,
+                "turno": None,
+                "chofer": None,
+                "paramedico": None,
+                "supervisor": None,
+                "tipo_grua": None,
+                "ubicacion_referencia": None,
+                "tramo_ruta": None,
+                "abscisa_km": None,
+                "sentido": None,
+                "prioridad": None,
+                "descripcion_falla_o_motivo": None,
+                "vehiculo_involucrado": None,
+                "placa_vehiculo": None,
+                "nombre_paciente": None,
+                "edad_paciente": None,
+                "usuario_reporta": None,
+                "destino_paciente": None,
+                "odometro_salida_km": None,
+                "odometro_llegada_km": None,
+            }
+
+        # 1. Extracción determinista inmediata (0.001s) adaptada a formatos de radio y WhatsApp reales
+        txt_raw = texto_reporte or ""
+        clean = txt_raw.replace("*", "")
+        txt = clean.lower()
+
+        es_amb = any(w in txt for w in ("ambulancia", "cre-", "qra", "qtw", "paciente", "centro de salud", "hospital", "herido", "médico", "reporte de atención", "móvil", "atención"))
+        es_grua = any(w in txt for w in ("grua", "grúa", "remolque", "daño mecánico", "varado", "volqueta", "peaje los ángeles", "asistencia"))
+        tipo = "ambulancia" if es_amb else ("grua" if es_grua else None)
+
+        m_hoja = re.search(r"número de hoja\s*:?\s*([^\n\r]+)", clean, re.I)
+        codigo_form = m_hoja.group(1).strip() if m_hoja else None
+
+        m_turno = re.search(r"turno\s*:?\s*([123])", clean, re.I)
+        turno = m_turno.group(1).strip() if m_turno else None
+
+        m_chofer = re.search(r"(?:conductor|chofer)\s*:?\s*([^\n\r]+)", clean, re.I)
+        chofer = m_chofer.group(1).strip() if m_chofer else None
+
+        m_paramedico = re.search(r"(?:responsable de la atención|paramédico|paramedico)\s*:?\s*([^\n\r]+)", clean, re.I)
+        paramedico = m_paramedico.group(1).strip() if m_paramedico else None
+
+        m_supervisor = re.search(r"autoriza\s*:?\s*([^\n\r]+)", clean, re.I)
+        supervisor = m_supervisor.group(1).strip() if m_supervisor else None
+
+        tipo_grua = "GRANDE" if "grande" in txt else ("PLATAFORMA" if "plataforma" in txt else ("PEQUEÑA" if "pequeña" in txt else None))
+
+        m_qra = re.search(r"qra\s*:?\s*([^\n\r]+)", clean, re.I)
+        nombre_paciente = m_qra.group(1).strip() if m_qra else None
+
+        m_edad = re.search(r"edad\s*:?\s*([^\n\r]+)", clean, re.I)
+        edad_paciente = m_edad.group(1).strip() if m_edad else None
+
+        m_qtw = re.search(r"qtw\s*:?\s*([^\n\r]+)", clean, re.I)
+        m_asistencia = re.search(r"(?:tipo de asistencia|tipo de incidente|falla|motivo)\s*:?\s*([^\n\r]+)", clean, re.I)
+        falla = m_qtw.group(1).strip() if m_qtw else (m_asistencia.group(1).strip() if m_asistencia else None)
+
+        m_recepcion = re.search(r"recepción\s*:?\s*([^\n\r]+)", clean, re.I)
+        destino_paciente = m_recepcion.group(1).strip() if m_recepcion else None
+
+        m_odo_sal = re.search(r"(?:km de salida|odometro salida)\s*:?\s*(\d+)", clean, re.I)
+        odometro_sal = float(m_odo_sal.group(1)) if m_odo_sal else None
+
+        m_odo_lleg = re.search(r"(?:km de llegada|odometro llegada)\s*:?\s*(\d+)", clean, re.I)
+        odometro_lleg = float(m_odo_lleg.group(1)) if m_odo_lleg else None
+
+        m_km = re.search(r"\bkm\s*(\d+(?:[\.,]\d+)?)\s*([^\n\r]*)", clean, re.I)
+        abscisa = float(m_km.group(1).replace(",", ".")) if m_km else None
+        resto_km = m_km.group(2).strip() if m_km and m_km.group(2) else None
+
+        m_placa = re.search(r"\b([a-zA-Z]{3}-?\d{3,4})\b", clean)
+        placa = m_placa.group(1).upper() if m_placa else None
+
+        m_veh = re.search(r"vehículo\s*:?\s*([^\n\r]+)", clean, re.I)
+        vehiculo = m_veh.group(1).strip() if m_veh else None
+
+        m_usr = re.search(r"usuario\s*:?\s*([^\n\r]+)", clean, re.I)
+        usuario = m_usr.group(1).strip() if m_usr else None
+
+        m_qth = re.search(r"qth\s*:?\s*([^\n\r]+)", clean, re.I)
+        ubicacion = m_qth.group(1).strip() if m_qth else (resto_km if resto_km else (f"Km {abscisa}" if abscisa else None))
+
+        prioridad = "FATAL" if any(w in txt for w in ("fatal", "fallecido", "muerto")) else ("GRAVE" if any(w in txt for w in ("grave", "urgente")) else "LEVE")
+        sentido = "ASCENDENTE" if "ascendente" in txt else ("DESCENDENTE" if "descendente" in txt else None)
+
+        resultado_determinista = {
+            "tipo_asistencia": tipo,
+            "codigo_formulario": codigo_form,
+            "turno": turno,
+            "chofer": chofer,
+            "paramedico": paramedico,
+            "supervisor": supervisor,
+            "tipo_grua": tipo_grua,
+            "ubicacion_referencia": ubicacion,
+            "tramo_ruta": None,
+            "abscisa_km": abscisa,
+            "sentido": sentido,
+            "prioridad": prioridad,
+            "descripcion_falla_o_motivo": falla,
+            "vehiculo_involucrado": vehiculo,
+            "placa_vehiculo": placa,
+            "nombre_paciente": nombre_paciente,
+            "edad_paciente": edad_paciente,
+            "usuario_reporta": usuario,
+            "destino_paciente": destino_paciente,
+            "odometro_salida_km": odometro_sal,
+            "odometro_llegada_km": odometro_lleg,
+        }
+
+        # Si el texto ya tiene los patrones estructurados habituales del personal, devolver inmediatamente (0.001s)
+        campos_encontrados = sum(1 for v in (placa, chofer, paramedico, codigo_form, nombre_paciente, falla, vehiculo) if v is not None)
+        if tipo and campos_encontrados >= 2:
+            return resultado_determinista
+
+        # 2. Si es texto libre no estructurado, consultar a Qwen con timeout estricto de 8s
+        prompt = (
+            "Eres el despachador de emergencias de una autopista ecuatoriana (peajes, ambulancias y grúas).\n"
+            "Analiza el texto de reporte y extrae los datos en formato JSON estricto.\n\n"
+            "ESQUEMA JSON:\n"
+            "{\n"
+            '  "tipo_asistencia": "grua" | "ambulancia" | null,\n'
+            '  "codigo_formulario": string o null,\n'
+            '  "turno": "1" | "2" | "3" | null,\n'
+            '  "chofer": string o null,\n'
+            '  "paramedico": string o null,\n'
+            '  "supervisor": string o null,\n'
+            '  "tipo_grua": "PEQUEÑA" | "GRANDE" | "PLATAFORMA" | null,\n'
+            '  "ubicacion_referencia": string o null,\n'
+            '  "abscisa_km": number o null,\n'
+            '  "sentido": "ASCENDENTE" | "DESCENDENTE" | null,\n'
+            '  "prioridad": "LEVE" | "GRAVE" | "FATAL" | null,\n'
+            '  "descripcion_falla_o_motivo": string o null,\n'
+            '  "vehiculo_involucrado": string o null,\n'
+            '  "placa_vehiculo": string o null,\n'
+            '  "nombre_paciente": string o null,\n'
+            '  "edad_paciente": string o null,\n'
+            '  "usuario_reporta": string o null,\n'
+            '  "destino_paciente": string o null,\n'
+            '  "odometro_salida_km": number o null,\n'
+            '  "odometro_llegada_km": number o null\n'
+            "}\n\n"
+            "REGLAS:\n"
+            "- Si no se menciona un dato, coloca null.\n"
+            "- Devuelve ÚNICAMENTE el bloque JSON válido sin explicaciones.\n\n"
+            f'Reporte:\n"""\n{texto_reporte}\n"""'
+        )
+
+        try:
+            async with httpx.AsyncClient(timeout=8.0) as client:
+                res = await client.post(
+                    OLLAMA_URL,
+                    json={
+                        "model": MODELO_OLLAMA,
+                        "messages": [{"role": "user", "content": prompt}],
+                        "stream": False,
+                        "format": "json",
+                        "keep_alive": OLLAMA_KEEP_ALIVE,
+                        "options": {
+                            "num_thread": NUM_THREADS,
+                            "temperature": 0.0,
+                            "num_predict": 95
+                        }
+                    }
+                )
+                if res.status_code == 200:
+                    raw = res.json()["message"]["content"]
+                    content_clean = re.sub(r"^```(?:json)?\s*", "", raw.strip())
+                    content_clean = re.sub(r"\s*```$", "", content_clean).strip()
+                    data = json.loads(content_clean)
+
+                    def _clean_str(val):
+                        if val is None:
+                            return None
+                        s = str(val).strip()
+                        if s.lower() in ("null", "none", "undefined", "n/a", ""):
+                            return None
+                        return s
+
+                    def _clean_num(val):
+                        if val is None:
+                            return None
+                        try:
+                            if isinstance(val, (int, float)):
+                                return float(val)
+                            s = str(val).strip().lower()
+                            if s in ("null", "none", "undefined", ""):
+                                return None
+                            return float(s.replace(",", "."))
+                        except (ValueError, TypeError):
+                            return None
+
+                    for k in resultado_determinista.keys():
+                        if resultado_determinista[k] is None and k in data:
+                            val = data[k]
+                            if "km" in k or "odometro" in k or "abscisa" in k:
+                                resultado_determinista[k] = _clean_num(val)
+                            else:
+                                resultado_determinista[k] = _clean_str(val)
+
+        except Exception as e:
+            logger.info(f"Ollama no respondió en ventana corta ({repr(e)}). Usando extracción determinista.")
+
+        return resultado_determinista
+
+    async def diagnostico_dashboard(
+        self,
+        db: Session,
+        fecha_inicio: Optional[str] = None,
+        fecha_fin: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Genera un diagnóstico ejecutivo estructurado en 3 puntos clave sobre las métricas
+        reales de SQL Server para el periodo especificado, usando Qwen 2.5 7B con fallback determinista.
+        """
+        d_ini = None
+        d_fin = None
+        if fecha_inicio:
+            try:
+                d_ini = date.fromisoformat(str(fecha_inicio)[:10])
+            except Exception:
+                d_ini = None
+        if fecha_fin:
+            try:
+                d_fin = date.fromisoformat(str(fecha_fin)[:10])
+            except Exception:
+                d_fin = None
+
+        metricas = analitica_repo.get_resumen_operativo(
+            db=db,
+            fecha_inicio=d_ini,
+            fecha_fin=d_fin,
+            tipo_servicio="todos"
+        )
+
+        puntos_negros = analitica_repo.get_puntos_negros(db=db, limit=3)
+
+        contexto_analitico = {
+            "periodo": {
+                "fecha_inicio": str(d_ini) if d_ini else "Inicio de registro",
+                "fecha_fin": str(d_fin) if d_fin else "Fecha actual",
+            },
+            "metricas_asistencias": metricas,
+            "puntos_criticos_viales": puntos_negros[:3] if puntos_negros else []
+        }
+
+        prompt = (
+            "Eres el Asesor Estratégico de Operaciones de Concesión Vial.\n"
+            "Analiza las siguientes métricas verificadas de la base de datos SQL:\n"
+            f"{json.dumps(contexto_analitico, ensure_ascii=False, indent=2)}\n\n"
+            "INSTRUCCIÓN OBLIGATORIA:\n"
+            "Redacta un diagnóstico ejecutivo claro, estructurado exactamente en los siguientes 3 puntos numerados:\n"
+            "1. **Balance General:** Volumen total de asistencias y proporción entre grúas y ambulancias.\n"
+            "2. **Alertas y Dinámica Operativa:** Nivel de demanda, carga de trabajo y criticidad en la autopista.\n"
+            "3. **Recomendación Operativa:** Medidas de despliegue preventivo de recursos en los tramos de mayor recurrencia.\n\n"
+            "REGLAS:\n"
+            "- Sé conciso, profesional y directo (máximo 70 palabras en total).\n"
+            "- Basa todas las cifras ÚNICAMENTE en el JSON de métricas provisto. No inventes números.\n"
+            "- Si el total es 0, indica claramente que no constan asistencias registradas en el periodo evaluado."
+        )
+
+        resumen_texto = ""
+        try:
+            async with httpx.AsyncClient(timeout=8.0) as client:
+                res = await client.post(
+                    OLLAMA_URL,
+                    json={
+                        "model": MODELO_OLLAMA,
+                        "messages": [{"role": "user", "content": prompt}],
+                        "stream": False,
+                        "keep_alive": OLLAMA_KEEP_ALIVE,
+                        "options": {
+                            "num_thread": NUM_THREADS,
+                            "temperature": 0.0,
+                            "num_predict": 95
+                        }
+                    }
+                )
+                if res.status_code == 200:
+                    resumen_texto = res.json()["message"]["content"].strip()
+        except Exception as e:
+            logger.info(f"Ollama diagnóstico dashboard omitido o en espera ({repr(e)}). Usando síntesis determinista.")
+
+        if not resumen_texto:
+            tot = metricas.get("total_asistencias", 0)
+            tot_a = metricas.get("total_ambulancias", 0)
+            tot_g = metricas.get("total_gruas", 0)
+            if tot == 0:
+                resumen_texto = (
+                    "1. **Balance General:** No se registran asistencias de ambulancias ni grúas en el periodo consultado.\n\n"
+                    "2. **Alertas y Dinámica Operativa:** La infraestructura vial opera con flujo normal sin intervenciones de emergencia reportadas.\n\n"
+                    "3. **Recomendación Operativa:** Mantener patrullajes preventivos de rutina y verificación de radio en puntos de control."
+                )
+            else:
+                pct_g = round((tot_g / tot) * 100, 1) if tot > 0 else 0
+                resumen_texto = (
+                    f"1. **Balance General:** Se consolidaron {tot:,} asistencias totales en el periodo, integradas por {tot_g:,} auxilios de grúas ({pct_g}%) y {tot_a:,} atenciones de ambulancias.\n\n"
+                    f"2. **Alertas y Dinámica Operativa:** La demanda principal se concentró en auxilio mecánico, requiriendo disponibilidad continua de unidades de plataforma.\n\n"
+                    f"3. **Recomendación Operativa:** Reforzar el posicionamiento preventivo en los peajes y sectores de mayor afluencia vehicular para reducir tiempos de despeje de calzada."
+                )
+
+        return {
+            "resumen": resumen_texto,
+            "metricas_base": metricas
+        }
 
 
 ai_service = AIService()

@@ -5,7 +5,7 @@ Repositorio para consultas analíticas sobre las vistas y tablas de SQL Server:
 - Tablas transaccionales para modelado de scoring y clustering espacial/temporal.
 """
 from typing import Optional, List, Dict, Any
-from datetime import date
+from datetime import date, datetime, time
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -220,6 +220,76 @@ class AnaliticaRepository:
             return int(result or 0)
         except Exception:
             return 0
+
+    def get_resumen_operativo(
+        self,
+        db: Session,
+        fecha_inicio: Optional[date] = None,
+        fecha_fin: Optional[date] = None,
+        tipo_servicio: Optional[str] = None,
+        zona: Optional[str] = None,
+        estado: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Calcula conteos y métricas de asistencias viales exclusivamente mediante SELECT
+        sobre las tablas transaccionales dbo.asistencias_ambulancia y dbo.asistencias_grua.
+        """
+        clauses_amb = ["1 = 1"]
+        clauses_gru = ["1 = 1"]
+        params: Dict[str, Any] = {}
+
+        if fecha_inicio:
+            clauses_amb.append("ts_llamada >= :dt_inicio")
+            clauses_gru.append("ts_llamada >= :dt_inicio")
+            params["dt_inicio"] = datetime.combine(fecha_inicio, time.min)
+
+        if fecha_fin:
+            clauses_amb.append("ts_llamada <= :dt_fin")
+            clauses_gru.append("ts_llamada <= :dt_fin")
+            params["dt_fin"] = datetime.combine(fecha_fin, time.max)
+
+        if zona:
+            clauses_amb.append("(UPPER(sector_referencia) LIKE :zona OR UPPER(sentido) LIKE :zona)")
+            clauses_gru.append("(UPPER(sector_referencia) LIKE :zona OR UPPER(sentido) LIKE :zona)")
+            params["zona"] = f"%{zona.upper()}%"
+
+        if estado:
+            clauses_amb.append("(UPPER(severidad) LIKE :estado OR UPPER(tipo_incidente) LIKE :estado)")
+            clauses_gru.append("(UPPER(severidad) LIKE :estado OR UPPER(tipo_grua) LIKE :estado OR UPPER(motivo_atencion) LIKE :estado)")
+            params["estado"] = f"%{estado.upper()}%"
+
+        svc = (tipo_servicio or "todos").lower().strip()
+        cnt_amb = 0
+        cnt_gru = 0
+
+        if svc in ("ambulancia", "ambulancias", "todos"):
+            sql_amb = f"SELECT COUNT(*) FROM dbo.asistencias_ambulancia WHERE {' AND '.join(clauses_amb)}"
+            cnt_amb = int(db.execute(text(sql_amb), params).scalar() or 0)
+
+        if svc in ("grua", "gruas", "todos"):
+            sql_gru = f"SELECT COUNT(*) FROM dbo.asistencias_grua WHERE {' AND '.join(clauses_gru)}"
+            cnt_gru = int(db.execute(text(sql_gru), params).scalar() or 0)
+
+        total_asist = cnt_amb + cnt_gru
+
+        resumen: Dict[str, Any] = {
+            "tipo_servicio": tipo_servicio or "todos",
+            "fecha_inicio": str(fecha_inicio) if fecha_inicio else None,
+            "fecha_fin": str(fecha_fin) if fecha_fin else None,
+            "zona": zona,
+            "estado": estado,
+            "total_asistencias": total_asist,
+        }
+
+        if svc in ("ambulancia", "ambulancias"):
+            resumen["total_ambulancias"] = cnt_amb
+        elif svc in ("grua", "gruas"):
+            resumen["total_gruas"] = cnt_gru
+        else:
+            resumen["total_ambulancias"] = cnt_amb
+            resumen["total_gruas"] = cnt_gru
+
+        return resumen
 
 
 analitica_repo = AnaliticaRepository()
